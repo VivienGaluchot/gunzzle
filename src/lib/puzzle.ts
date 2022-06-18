@@ -1,5 +1,22 @@
 "use strict"
 
+/**
+ * Piece
+ * 
+ *       tl   tr
+ *       --- ---
+ *  rt |         | lt
+ *          x
+ *  rb |         | lb
+ *       --- ---
+ *       bl   br
+ */
+class Piece {
+    constructor() {
+
+    }
+}
+
 class Solution {
     constructor() {
 
