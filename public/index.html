@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="app.css">
+    <title>Gunzzle</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto+Serif:opsz,wght@8..144,100;8..144,300;8..144,400;8..144,600;8..144,700;8..144,900&display=swap" rel="stylesheet">
+
+    <script src="app.js" defer type="module"></script>
+</head>
+
+<body>
+    <main>
+        <h1>Gunzzle</h1>
+
+        <section>
+            <h2>4 pieces</h2>
+            <p>Generate a puzzle with 4 pieces.</p>
+            <form class="gen-form" onsubmit="return false;">
+                <label>Fragment count</label>
+                <input type="number" name="fragment_count" value="4" min="1" max="100" />
+                <button type="submit">Run</button>
+            </form>
+
+            <svg id="frame" class="altng-frame" xmlns="http://www.w3.org/2000/svg" width="200" height="200">
+            </svg>
+        </section>
+    </main>
+
+    <footer>
+        <a href="https://github.com/VivienGaluchot/gunzzle">code</a>
+    </footer>
+
+</body>
+
+</html>
