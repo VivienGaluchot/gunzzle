@@ -9,7 +9,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 import * as Puzzle from './lib/puzzle.js';
-function execWithFormData(formData) {
+function execWithFormData(formData, output) {
     return __awaiter(this, void 0, void 0, function* () {
         function getIntProp(name) {
             if (!formData.has(name)) {
@@ -28,7 +28,16 @@ function execWithFormData(formData) {
         let cols = getIntProp("col_count");
         let fragments = getIntProp("fragment_count");
         let solutions = yield Puzzle.generate(rows, cols, fragments);
-        console.info(`${solutions.length} solution found for ${rows} ${cols} ${fragments}`);
+        while (output.firstChild != null) {
+            output.firstChild.remove();
+        }
+        let info = document.createElement("div");
+        info.classList.add("info");
+        info.innerText = `${solutions.length} solution found for ${rows} ${cols} ${fragments}`;
+        output.appendChild(info);
+        for (let sol of solutions) {
+            output.appendChild(sol.render());
+        }
     });
 }
 function formSubmit(event) {
@@ -36,6 +45,13 @@ function formSubmit(event) {
         let toEnable = new Set();
         console.info("run...");
         try {
+            let output = document.querySelector(".gen-output");
+            if (output == null) {
+                throw new Error(`output element not found`);
+            }
+            while (output.firstChild != null) {
+                output.firstChild.remove();
+            }
             let el = event.target;
             if (!(el instanceof HTMLFormElement)) {
                 throw new Error(`element is not a form ${el}`);
@@ -49,7 +65,8 @@ function formSubmit(event) {
                     }
                 }
             }
-            yield execWithFormData(data);
+            yield execWithFormData(data, output);
+            console.info("done");
         }
         catch (error) {
             console.error("execution failed", error);

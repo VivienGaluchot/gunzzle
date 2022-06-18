@@ -11,10 +11,15 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 class Solution {
     constructor() {
     }
+    render() {
+        let el = document.createElement("div");
+        el.classList.add("puzzle-solution");
+        return el;
+    }
 }
 function generate(rows, cols, fragments) {
     return __awaiter(this, void 0, void 0, function* () {
-        yield new Promise(r => setTimeout(r, 2000));
+        yield new Promise(r => setTimeout(r, 500));
         return [];
     });
 }

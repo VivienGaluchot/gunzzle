@@ -2,7 +2,7 @@
 
 import * as Puzzle from './lib/puzzle.js';
 
-async function execWithFormData(formData: FormData) {
+async function execWithFormData(formData: FormData, output: Element) {
     function getIntProp(name: string): number {
         if (!formData.has(name)) {
             throw new Error(`form property ${name} missing`);
@@ -22,7 +22,18 @@ async function execWithFormData(formData: FormData) {
     let fragments = getIntProp("fragment_count");
     let solutions = await Puzzle.generate(rows, cols, fragments);
 
-    console.info(`${solutions.length} solution found for ${rows} ${cols} ${fragments}`);
+    while (output.firstChild != null) {
+        output.firstChild.remove();
+    }
+
+    let info = document.createElement("div");
+    info.classList.add("info");
+    info.innerText = `${solutions.length} solution found for ${rows} ${cols} ${fragments}`;
+    output.appendChild(info);
+
+    for (let sol of solutions) {
+        output.appendChild(sol.render());
+    }
 }
 
 
@@ -30,6 +41,14 @@ async function formSubmit(event: Event) {
     let toEnable = new Set<HTMLButtonElement | HTMLInputElement>();
     console.info("run...");
     try {
+        let output = document.querySelector(".gen-output");
+        if (output == null) {
+            throw new Error(`output element not found`);
+        }
+        while (output.firstChild != null) {
+            output.firstChild.remove();
+        }
+
         let el = event.target;
         if (!(el instanceof HTMLFormElement)) {
             throw new Error(`element is not a form ${el}`);
@@ -43,7 +62,8 @@ async function formSubmit(event: Event) {
                 }
             }
         }
-        await execWithFormData(data);
+        await execWithFormData(data, output);
+        console.info("done");
     } catch (error) {
         console.error("execution failed", error);
     } finally {

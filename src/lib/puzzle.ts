@@ -4,10 +4,16 @@ class Solution {
     constructor() {
 
     }
+
+    render(): Element {
+        let el = document.createElement("div");
+        el.classList.add("puzzle-solution");
+        return el;
+    }
 }
 
 async function generate(rows: number, cols: number, fragments: number): Promise<Solution[]> {
-    await new Promise(r => setTimeout(r, 2000));
+    await new Promise(r => setTimeout(r, 500));
     return [];
 }
 
