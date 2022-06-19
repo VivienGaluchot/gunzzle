@@ -45,6 +45,11 @@ class SvgNode {
         setStyle(this.domEl, value);
     }
 
+    set rotate(value: number) {
+        Maths.checkIsFinite(value);
+        this.setAttribute("transform", `rotate(${value.toString()})`);
+    }
+
     setAttribute(name: string, value: string) {
         this.domEl.setAttribute(name, value);
     }
@@ -64,16 +69,39 @@ class SvgNode {
     }
 }
 
+class SvgFrame extends SvgNode {
+    // safe area, always drawn for all aspect ratios
+    internalSafeView: Maths.Rect;
+
+    constructor() {
+        super(document.createElementNS("http://www.w3.org/2000/svg", "svg"));
+
+        this.setAttribute("width", "200");
+        this.setAttribute("height", "200");
+
+        this.setAttribute("preserveAspectRatio", "xMidYMid");
+        this.setAttribute("transform", "scale(1,-1)");
+
+        this.internalSafeView = new Maths.Rect(new Maths.Vector(0, 0), new Maths.Vector(0, 0));
+        this.safeView = new Maths.Rect(new Maths.Vector(-10, -10), new Maths.Vector(20, 20));
+    }
+
+    // safe area, always drawn for all aspect ratios
+    set safeView(value: Maths.Rect) {
+        this.internalSafeView = value;
+        this.setAttribute("viewBox", `${value.pos.x} ${value.pos.x} ${value.size.x} ${value.size.y}`);
+    }
+
+    get safeView(): Maths.Rect {
+        return this.internalSafeView;
+    }
+}
+
 class SvgTag extends SvgNode {
     constructor(tag: string) {
         const svgNS = "http://www.w3.org/2000/svg";
         super(document.createElementNS(svgNS, tag));
         this.rotate = 0;
-    }
-
-    set rotate(value: number) {
-        Maths.checkIsFinite(value);
-        this.setAttribute("transform", `rotate(${value.toString()})`);
     }
 }
 
@@ -178,6 +206,7 @@ class Circle extends SvgTag {
 export {
     SvgStyle,
     SvgNode,
+    SvgFrame,
     SvgTag,
     Group,
     Line,

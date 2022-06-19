@@ -25,6 +25,10 @@ class SvgNode {
     set style(value) {
         setStyle(this.domEl, value);
     }
+    set rotate(value) {
+        Maths.checkIsFinite(value);
+        this.setAttribute("transform", `rotate(${value.toString()})`);
+    }
     setAttribute(name, value) {
         this.domEl.setAttribute(name, value);
     }
@@ -42,15 +46,30 @@ class SvgNode {
         }
     }
 }
+class SvgFrame extends SvgNode {
+    constructor() {
+        super(document.createElementNS("http://www.w3.org/2000/svg", "svg"));
+        this.setAttribute("width", "200");
+        this.setAttribute("height", "200");
+        this.setAttribute("preserveAspectRatio", "xMidYMid");
+        this.setAttribute("transform", "scale(1,-1)");
+        this.internalSafeView = new Maths.Rect(new Maths.Vector(0, 0), new Maths.Vector(0, 0));
+        this.safeView = new Maths.Rect(new Maths.Vector(-10, -10), new Maths.Vector(20, 20));
+    }
+    // safe area, always drawn for all aspect ratios
+    set safeView(value) {
+        this.internalSafeView = value;
+        this.setAttribute("viewBox", `${value.pos.x} ${value.pos.x} ${value.size.x} ${value.size.y}`);
+    }
+    get safeView() {
+        return this.internalSafeView;
+    }
+}
 class SvgTag extends SvgNode {
     constructor(tag) {
         const svgNS = "http://www.w3.org/2000/svg";
         super(document.createElementNS(svgNS, tag));
         this.rotate = 0;
-    }
-    set rotate(value) {
-        Maths.checkIsFinite(value);
-        this.setAttribute("transform", `rotate(${value.toString()})`);
     }
 }
 class Group extends SvgTag {
@@ -134,4 +153,4 @@ class Circle extends SvgTag {
         this.setAttribute("r", value.toString());
     }
 }
-export { SvgNode, SvgTag, Group, Line, Rect, Circle };
+export { SvgNode, SvgFrame, SvgTag, Group, Line, Rect, Circle };

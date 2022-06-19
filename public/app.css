@@ -10,7 +10,7 @@ body {
 body {
     display: grid;
     grid-template-columns: 1fr minmax(auto, 1200px) 1fr;
-    grid-template-rows: 1fr auto;
+    grid-template-rows: min-content 1fr min-content;
     grid-gap: 1rem;
 }
 
@@ -19,21 +19,25 @@ body>h1 {
     grid-column-start: 2;
 }
 
-body>section {
-    justify-self: center;
-    align-self: center;
+body>main {
+    display: grid;
     grid-column-start: 2;
+    grid-auto-rows: min-content;
+}
+
+body>main>section {
+    justify-self: center;
     padding: 1rem;
 }
 
-body>section.wide {
+body>main>section.wide {
     justify-self: stretch;
 }
 
 body>footer {
-    padding: 1rem;
     justify-self: center;
     grid-column-start: 2;
+    padding: 1rem;
 }
 
 form {
@@ -148,15 +152,23 @@ button {
     background-color: rgba(0, 0, 0, 0.5);
     border-radius: .5rem;
     min-width: 5rem;
-    height: 50rem;
+    min-height: 10rem;
+    max-height: 80vh;
+    overflow: auto;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(20rem, 1fr));
+    grid-auto-rows: min-content;
+    grid-gap: 2rem;
+    padding: 2rem;
 }
 
 .gen-output .info {
-    padding: 1.5rem;
     top: 0;
+    grid-column: 1/-1;
 }
 
-.altng-frame {
+.gen-output .puzzle-solution {
+    min-height: 20rem;
     width: 100%;
     height: 100%;
 }
