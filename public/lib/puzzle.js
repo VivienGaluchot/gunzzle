@@ -34,6 +34,17 @@ class Piece {
     constructor() {
         this.fragments = [0, 0, 0, 0, 0, 0, 0, 0];
     }
+    render() {
+        let group = new Svg.Group();
+        let boxStyle = { fill: "transparent", stroke: "#FFF8", strokeW: ".1" };
+        group.appendChild(new Svg.Rect(1, 1, 8, 8, boxStyle));
+        let lineStyle = { stroke: "#FFF8", strokeW: ".1" };
+        group.appendChild(new Svg.Line(5, 4, 5, 6, lineStyle));
+        group.appendChild(new Svg.Line(4, 5, 6, 5, lineStyle));
+        let txtStyle = { fill: "#FFF8", fontSize: "1" };
+        group.appendChild(new Svg.Text("a", 3, 3, txtStyle));
+        return group;
+    }
 }
 class Solution {
     constructor(rows, cols) {
@@ -56,9 +67,9 @@ class Solution {
         frame.safeView = new Maths.Rect(new Maths.Vector(0, 0), new Maths.Vector(this.rows * 10, this.cols * 10));
         for (let r = 0; r < this.rows; r++) {
             for (let c = 0; c < this.cols; c++) {
-                let p = this.pieces[r][c];
-                let rect = new Svg.Rect(10 * r + 1, 10 * c + 1, 8, 8, { fill: "transparent", stroke: "#FFF8", strokeW: ".1" });
-                group.appendChild(rect);
+                let piece = this.pieces[r][c].render();
+                piece.translation = new Maths.Vector(c * 10, r * 10);
+                group.appendChild(piece);
             }
         }
         return frame.domEl;

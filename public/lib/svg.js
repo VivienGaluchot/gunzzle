@@ -17,6 +17,12 @@ function setStyle(el, style) {
     if (style.vectorEffect) {
         el.setAttribute("vector-effect", style.vectorEffect);
     }
+    if (style.fontFamily) {
+        el.setAttribute("font-family", style.fontFamily);
+    }
+    if (style.fontSize) {
+        el.setAttribute("font-size", style.fontSize);
+    }
 }
 class SvgNode {
     constructor(el) {
@@ -25,9 +31,17 @@ class SvgNode {
     set style(value) {
         setStyle(this.domEl, value);
     }
-    set rotate(value) {
-        Maths.checkIsFinite(value);
-        this.setAttribute("transform", `rotate(${value.toString()})`);
+    set rotation(value) {
+        this.rotationAngle = value;
+        this.transform();
+    }
+    set translation(value) {
+        this.translateVector = value;
+        this.transform();
+    }
+    set scale(value) {
+        this.scaleVector = value;
+        this.transform();
     }
     setAttribute(name, value) {
         this.domEl.setAttribute(name, value);
@@ -45,6 +59,19 @@ class SvgNode {
             this.domEl.firstChild.remove();
         }
     }
+    transform() {
+        let transforms = [];
+        if (this.rotationAngle) {
+            transforms.push(`rotate(${this.rotationAngle.toString()})`);
+        }
+        if (this.translateVector) {
+            transforms.push(`translate(${this.translateVector.x.toString()} ${this.translateVector.y.toString()})`);
+        }
+        if (this.scaleVector) {
+            transforms.push(`scale(${this.scaleVector.x.toString()} ${this.scaleVector.y.toString()})`);
+        }
+        this.setAttribute("transform", transforms.join(" "));
+    }
 }
 class SvgFrame extends SvgNode {
     constructor() {
@@ -52,7 +79,6 @@ class SvgFrame extends SvgNode {
         this.setAttribute("width", "200");
         this.setAttribute("height", "200");
         this.setAttribute("preserveAspectRatio", "xMidYMid");
-        this.setAttribute("transform", "scale(1,-1)");
         this.internalSafeView = new Maths.Rect(new Maths.Vector(0, 0), new Maths.Vector(0, 0));
         this.safeView = new Maths.Rect(new Maths.Vector(-10, -10), new Maths.Vector(20, 20));
     }
@@ -69,7 +95,6 @@ class SvgTag extends SvgNode {
     constructor(tag) {
         const svgNS = "http://www.w3.org/2000/svg";
         super(document.createElementNS(svgNS, tag));
-        this.rotate = 0;
     }
 }
 class Group extends SvgTag {
@@ -136,7 +161,7 @@ class Circle extends SvgTag {
     constructor(x, y, r, style) {
         super("circle");
         this.x = x;
-        this.x = y;
+        this.y = y;
         this.r = r;
         this.style = style;
     }
@@ -153,4 +178,24 @@ class Circle extends SvgTag {
         this.setAttribute("r", value.toString());
     }
 }
-export { SvgNode, SvgFrame, SvgTag, Group, Line, Rect, Circle };
+class Text extends SvgTag {
+    constructor(text, x, y, style) {
+        super("text");
+        this.text = text;
+        this.x = x;
+        this.y = y;
+        this.style = style;
+    }
+    set text(value) {
+        this.domEl.textContent = value;
+    }
+    set x(value) {
+        Maths.checkIsFinite(value);
+        this.setAttribute("x", value.toString());
+    }
+    set y(value) {
+        Maths.checkIsFinite(value);
+        this.setAttribute("y", value.toString());
+    }
+}
+export { SvgNode, SvgFrame, SvgTag, Group, Line, Rect, Circle, Text };
