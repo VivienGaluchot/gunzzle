@@ -33,18 +33,34 @@ class Piece {
     fragments: FragmentArray;
 
     constructor() {
-        this.fragments = [0, 0, 0, 0, 0, 0, 0, 0];
+        this.fragments = [0, 1, 2, 3, 4, 5, 6, 7];
     }
 
     render(): Svg.SvgNode {
         let group = new Svg.Group();
-        let boxStyle = { fill: "transparent", stroke: "#FFF8", strokeW: ".1" };
-        group.appendChild(new Svg.Rect(1, 1, 8, 8, boxStyle));
-        let lineStyle = { stroke: "#FFF8", strokeW: ".1" };
-        group.appendChild(new Svg.Line(5, 4, 5, 6, lineStyle));
-        group.appendChild(new Svg.Line(4, 5, 6, 5, lineStyle));
-        let txtStyle = { fill: "#FFF8", fontSize: "1" };
-        group.appendChild(new Svg.Text("a", 3, 3, txtStyle));
+        group.domEl.classList.add("piece");
+        group.appendChild(new Svg.Rect(2, 2, 6, 6, { className: "piece-block" }));
+
+        // let lineStyle = { stroke: "#FFF2", strokeW: ".1" };
+        // group.appendChild(new Svg.Line(5, 4, 5, 6, lineStyle));
+        // group.appendChild(new Svg.Line(4, 5, 6, 5, lineStyle));
+
+        let a = 10 / 3;
+        let b = 10 / 3 * 2
+        let txtPos = [
+            new Maths.Vector(a, 1.5),
+            new Maths.Vector(b, 1.5),
+            new Maths.Vector(9, a),
+            new Maths.Vector(9, b),
+            new Maths.Vector(a, 9.5),
+            new Maths.Vector(b, 9.5),
+            new Maths.Vector(1, a),
+            new Maths.Vector(1, b)];
+        for (let id = FragmentPosition.TopLeft; id <= FragmentPosition.LeftTop; id++) {
+            let fr = this.fragments[id];
+            let pos = txtPos[id];
+            group.appendChild(new Svg.Text(fr.toString(), pos.x, pos.y, { className: "fragment-label" }));
+        }
         return group;
     }
 }
@@ -86,8 +102,8 @@ class Solution {
 }
 
 async function generate(rows: number, cols: number, fragments: number): Promise<Solution[]> {
-    await new Promise(r => setTimeout(r, 500));
-    return [new Solution(rows, cols), new Solution(rows, cols), new Solution(rows, cols)];
+    await new Promise(r => setTimeout(r, 50));
+    return [new Solution(rows, cols)];
 }
 
 export { generate }

@@ -23,6 +23,9 @@ function setStyle(el, style) {
     if (style.fontSize) {
         el.setAttribute("font-size", style.fontSize);
     }
+    if (style.textAnchor) {
+        el.setAttribute("text-anchor", style.textAnchor);
+    }
 }
 class SvgNode {
     constructor(el) {

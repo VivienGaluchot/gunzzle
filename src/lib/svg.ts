@@ -27,6 +27,9 @@ function setStyle(el: Element, style: SvgStyle) {
     if (style.fontSize) {
         el.setAttribute("font-size", style.fontSize);
     }
+    if (style.textAnchor) {
+        el.setAttribute("text-anchor", style.textAnchor);
+    }
 }
 
 
@@ -40,6 +43,7 @@ interface SvgStyle {
     vectorEffect?: string;
     fontFamily?: string;
     fontSize?: string;
+    textAnchor?: string;
 }
 
 class SvgNode {

@@ -172,3 +172,28 @@ button {
     width: 100%;
     height: 100%;
 }
+
+.puzzle-solution .piece .fragment-label {
+    fill: #FFF8;
+    font-size: 1.5px;
+    text-anchor: middle;
+    font-weight: 600;
+}
+
+.puzzle-solution .piece:hover .fragment-label {
+    fill: #FFFA;
+}
+
+.puzzle-solution .piece:hover .fragment-label {
+    fill: #FFFB;
+}
+
+.puzzle-solution .piece .piece-block {
+    fill: transparent;
+    stroke: #FFF2;
+    stroke-width: .1;
+}
+
+.puzzle-solution .piece:hover .piece-block {
+    fill: #FFF1;
+}
