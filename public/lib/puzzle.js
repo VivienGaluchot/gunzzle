@@ -38,9 +38,6 @@ class Piece {
         let group = new Svg.Group();
         group.domEl.classList.add("piece");
         group.appendChild(new Svg.Rect(2, 2, 6, 6, { className: "piece-block" }));
-        // let lineStyle = { stroke: "#FFF2", strokeW: ".1" };
-        // group.appendChild(new Svg.Line(5, 4, 5, 6, lineStyle));
-        // group.appendChild(new Svg.Line(4, 5, 6, 5, lineStyle));
         let a = 10 / 3;
         let b = 10 / 3 * 2;
         let txtPos = [
