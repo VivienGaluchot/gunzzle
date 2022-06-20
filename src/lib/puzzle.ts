@@ -77,7 +77,7 @@ class Solution {
         for (let r = 0; r < this.rows; r++) {
             for (let c = 0; c < this.cols; c++) {
                 let piece = this.pieces[r][c].render();
-                piece.translation = new Maths.Vector(c * 10, r * 10);
+                piece.translation = new Maths.Vector(r * 10, c * 10);
                 group.appendChild(piece);
             }
         }
