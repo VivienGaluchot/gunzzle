@@ -119,12 +119,19 @@ class Solution {
         }
     }
 
-    isUnique() {
+    isUnique(): boolean {
         // TODO
+        return false;
     }
 
-    next() {
+    next(): Solution | null {
         // TODO scan on all solutions
+        return null;
+    }
+
+    clone(): Solution {
+        // TODO
+        return new Solution(0, 0);
     }
 
     render(): Element {
@@ -147,8 +154,14 @@ class Solution {
 }
 
 async function generate(rows: number, cols: number, fragments: number): Promise<Solution[]> {
-    // TODO check if solution is valid
-    // then next solution
+    let solutions = [];
+    let sol: Solution | null = new Solution(rows, cols);
+    while (sol != null) {
+        if (sol.isValid() && sol.isUnique()) {
+            solutions.push(sol.clone());
+        }
+        sol = sol.next();
+    }
     return [new Solution(rows, cols)];
 }
 
