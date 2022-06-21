@@ -10,6 +10,13 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 };
 import * as Svg from './svg.js';
 import * as Maths from './maths.js';
+var Direction;
+(function (Direction) {
+    Direction[Direction["Top"] = 0] = "Top";
+    Direction[Direction["Right"] = 1] = "Right";
+    Direction[Direction["Bottom"] = 2] = "Bottom";
+    Direction[Direction["Left"] = 3] = "Left";
+})(Direction || (Direction = {}));
 /**
  *       tl   tr
  *       --- ---
@@ -57,6 +64,19 @@ class Piece {
         }
         return group;
     }
+    isFitting(other, dir) {
+        if (dir == Direction.Bottom) {
+            return this.fragments[FragmentPosition.BottomLeft] == other.fragments[FragmentPosition.TopLeft]
+                && this.fragments[FragmentPosition.BottomRight] == other.fragments[FragmentPosition.TopRight];
+        }
+        else if (dir == Direction.Right) {
+            return this.fragments[FragmentPosition.RightTop] == other.fragments[FragmentPosition.LeftTop]
+                && this.fragments[FragmentPosition.RightBottom] == other.fragments[FragmentPosition.LeftBottom];
+        }
+        else {
+            throw new Error("not implemented");
+        }
+    }
 }
 class Solution {
     constructor(rows, cols) {
@@ -71,6 +91,26 @@ class Solution {
             this.pieces.push(row);
         }
     }
+    isValid() {
+        for (let r = 0; r < this.rows; r++) {
+            for (let c = 0; r < this.cols; r++) {
+                if (r < this.rows) {
+                    let a = this.pieces[r][c];
+                    let b = this.pieces[r + 1][c];
+                    if (!a.isFitting(b, Direction.Right)) {
+                        return false;
+                    }
+                }
+                if (c < this.cols) {
+                    let a = this.pieces[r][c];
+                    let b = this.pieces[r][c + 1];
+                    if (!a.isFitting(b, Direction.Bottom)) {
+                        return false;
+                    }
+                }
+            }
+        }
+    }
     render() {
         let frame = new Svg.SvgFrame();
         frame.domEl.classList.add("puzzle-solution");
@@ -82,6 +122,7 @@ class Solution {
                 let piece = this.pieces[r][c].render();
                 piece.translation = new Maths.Vector(r * 10, c * 10);
                 group.appendChild(piece);
+                group.appendChild(new Svg.Text(`${r}, ${c}`, r * 10 + 5, c * 10 + 5, { className: "piece-coord" }));
             }
         }
         return frame.domEl;
@@ -89,7 +130,6 @@ class Solution {
 }
 function generate(rows, cols, fragments) {
     return __awaiter(this, void 0, void 0, function* () {
-        yield new Promise(r => setTimeout(r, 50));
         return [new Solution(rows, cols)];
     });
 }

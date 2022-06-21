@@ -197,3 +197,10 @@ button {
 .puzzle-solution .piece:hover .piece-block {
     fill: #FFF1;
 }
+
+.puzzle-solution .piece-coord {
+    fill: #FFF4;
+    font-size: 1px;
+    text-anchor: middle;
+    font-weight: 600;
+}

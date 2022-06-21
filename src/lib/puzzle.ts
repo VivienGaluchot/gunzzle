@@ -3,6 +3,13 @@
 import * as Svg from './svg.js';
 import * as Maths from './maths.js';
 
+enum Direction {
+    Top = 0,
+    Right,
+    Bottom,
+    Left,
+}
+
 /**
  *       tl   tr
  *       --- ---
@@ -59,6 +66,18 @@ class Piece {
         }
         return group;
     }
+
+    isFitting(other: Piece, dir: Direction): boolean {
+        if (dir == Direction.Bottom) {
+            return this.fragments[FragmentPosition.BottomLeft] == other.fragments[FragmentPosition.TopLeft]
+                && this.fragments[FragmentPosition.BottomRight] == other.fragments[FragmentPosition.TopRight];
+        } else if (dir == Direction.Right) {
+            return this.fragments[FragmentPosition.RightTop] == other.fragments[FragmentPosition.LeftTop]
+                && this.fragments[FragmentPosition.RightBottom] == other.fragments[FragmentPosition.LeftBottom];
+        } else {
+            throw new Error("not implemented");
+        }
+    }
 }
 
 class Solution {
@@ -79,6 +98,35 @@ class Solution {
         }
     }
 
+    isValid() {
+        for (let r = 0; r < this.rows; r++) {
+            for (let c = 0; r < this.cols; r++) {
+                if (r < this.rows) {
+                    let a = this.pieces[r][c];
+                    let b = this.pieces[r + 1][c];
+                    if (!a.isFitting(b, Direction.Right)) {
+                        return false;
+                    }
+                }
+                if (c < this.cols) {
+                    let a = this.pieces[r][c];
+                    let b = this.pieces[r][c + 1];
+                    if (!a.isFitting(b, Direction.Bottom)) {
+                        return false;
+                    }
+                }
+            }
+        }
+    }
+
+    isUnique() {
+        // TODO
+    }
+
+    next() {
+        // TODO scan on all solutions
+    }
+
     render(): Element {
         let frame = new Svg.SvgFrame();
         frame.domEl.classList.add("puzzle-solution");
@@ -91,6 +139,7 @@ class Solution {
                 let piece = this.pieces[r][c].render();
                 piece.translation = new Maths.Vector(r * 10, c * 10);
                 group.appendChild(piece);
+                group.appendChild(new Svg.Text(`${r}, ${c}`, r * 10 + 5, c * 10 + 5, { className: "piece-coord" }));
             }
         }
         return frame.domEl;
@@ -98,7 +147,8 @@ class Solution {
 }
 
 async function generate(rows: number, cols: number, fragments: number): Promise<Solution[]> {
-    await new Promise(r => setTimeout(r, 50));
+    // TODO check if solution is valid
+    // then next solution
     return [new Solution(rows, cols)];
 }
 
