@@ -31,7 +31,6 @@ enum FragmentPosition {
 }
 
 type Fragment = number;
-
 type FragmentArray = {
     [D in FragmentPosition]: Fragment;
 }
@@ -40,7 +39,15 @@ class Piece {
     fragments: FragmentArray;
 
     constructor() {
-        this.fragments = [0, 1, 2, 3, 4, 5, 6, 7];
+        this.fragments = [0, 0, 0, 0, 0, 0, 0, 0];
+    }
+
+    clone(): Piece {
+        let copy = new Piece();
+        for (let id = FragmentPosition.TopLeft; id <= FragmentPosition.LeftTop; id++) {
+            copy.fragments[id] = this.fragments[id];
+        }
+        return copy;
     }
 
     render(): Svg.SvgNode {
@@ -78,6 +85,20 @@ class Piece {
             throw new Error("not implemented");
         }
     }
+
+    next(fragCount: number): boolean {
+        for (let id = FragmentPosition.TopLeft; id <= FragmentPosition.LeftTop; id++) {
+            this.fragments[id]++;
+            if (this.fragments[id] < fragCount) {
+                // not an overflow
+                return false;
+            } else {
+                // overflow
+                this.fragments[id] = 0;
+            }
+        }
+        return true;
+    }
 }
 
 class Solution {
@@ -100,15 +121,15 @@ class Solution {
 
     isValid() {
         for (let r = 0; r < this.rows; r++) {
-            for (let c = 0; r < this.cols; r++) {
-                if (r < this.rows) {
+            for (let c = 0; c < this.cols; c++) {
+                if (r < (this.rows - 1)) {
                     let a = this.pieces[r][c];
                     let b = this.pieces[r + 1][c];
                     if (!a.isFitting(b, Direction.Right)) {
                         return false;
                     }
                 }
-                if (c < this.cols) {
+                if (c < (this.cols - 1)) {
                     let a = this.pieces[r][c];
                     let b = this.pieces[r][c + 1];
                     if (!a.isFitting(b, Direction.Bottom)) {
@@ -117,21 +138,40 @@ class Solution {
                 }
             }
         }
+        return true;
     }
 
     isUnique(): boolean {
         // TODO
-        return false;
+        return true;
     }
 
-    next(): Solution | null {
-        // TODO scan on all solutions
-        return null;
+    * allPieces() {
+        for (let r = 0; r < this.rows; r++) {
+            for (let c = 0; c < this.cols; c++) {
+                yield this.pieces[r][c];
+            }
+        }
+    }
+
+    next(fragCount: number): boolean {
+        for (let piece of this.allPieces()) {
+            let isOverflow = piece.next(fragCount);
+            if (!isOverflow) {
+                return false;
+            }
+        }
+        return true;
     }
 
     clone(): Solution {
-        // TODO
-        return new Solution(0, 0);
+        let sol = new Solution(this.rows, this.cols);
+        for (let r = 0; r < this.rows; r++) {
+            for (let c = 0; c < this.cols; c++) {
+                sol.pieces[r][c] = this.pieces[r][c].clone();
+            }
+        }
+        return sol;
     }
 
     render(): Element {
@@ -153,16 +193,20 @@ class Solution {
     }
 }
 
-async function generate(rows: number, cols: number, fragments: number): Promise<Solution[]> {
+async function generate(rows: number, cols: number, fragCount: number): Promise<Solution[]> {
+    // TODO run in workers
+    // show solution when found
+    // enable to stop execution
     let solutions = [];
     let sol: Solution | null = new Solution(rows, cols);
-    while (sol != null) {
+    let isDone = false;
+    while (!isDone) {
         if (sol.isValid() && sol.isUnique()) {
             solutions.push(sol.clone());
         }
-        sol = sol.next();
+        isDone = sol.next(fragCount);
     }
-    return [new Solution(rows, cols)];
+    return solutions;
 }
 
 export { generate }

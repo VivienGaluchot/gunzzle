@@ -39,7 +39,14 @@ var FragmentPosition;
 })(FragmentPosition || (FragmentPosition = {}));
 class Piece {
     constructor() {
-        this.fragments = [0, 1, 2, 3, 4, 5, 6, 7];
+        this.fragments = [0, 0, 0, 0, 0, 0, 0, 0];
+    }
+    clone() {
+        let copy = new Piece();
+        for (let id = FragmentPosition.TopLeft; id <= FragmentPosition.LeftTop; id++) {
+            copy.fragments[id] = this.fragments[id];
+        }
+        return copy;
     }
     render() {
         let group = new Svg.Group();
@@ -77,6 +84,20 @@ class Piece {
             throw new Error("not implemented");
         }
     }
+    next(fragCount) {
+        for (let id = FragmentPosition.TopLeft; id <= FragmentPosition.LeftTop; id++) {
+            this.fragments[id]++;
+            if (this.fragments[id] < fragCount) {
+                // not an overflow
+                return false;
+            }
+            else {
+                // overflow
+                this.fragments[id] = 0;
+            }
+        }
+        return true;
+    }
 }
 class Solution {
     constructor(rows, cols) {
@@ -93,15 +114,15 @@ class Solution {
     }
     isValid() {
         for (let r = 0; r < this.rows; r++) {
-            for (let c = 0; r < this.cols; r++) {
-                if (r < this.rows) {
+            for (let c = 0; c < this.cols; c++) {
+                if (r < (this.rows - 1)) {
                     let a = this.pieces[r][c];
                     let b = this.pieces[r + 1][c];
                     if (!a.isFitting(b, Direction.Right)) {
                         return false;
                     }
                 }
-                if (c < this.cols) {
+                if (c < (this.cols - 1)) {
                     let a = this.pieces[r][c];
                     let b = this.pieces[r][c + 1];
                     if (!a.isFitting(b, Direction.Bottom)) {
@@ -110,6 +131,36 @@ class Solution {
                 }
             }
         }
+        return true;
+    }
+    isUnique() {
+        // TODO
+        return true;
+    }
+    *allPieces() {
+        for (let r = 0; r < this.rows; r++) {
+            for (let c = 0; c < this.cols; c++) {
+                yield this.pieces[r][c];
+            }
+        }
+    }
+    next(fragCount) {
+        for (let piece of this.allPieces()) {
+            let isOverflow = piece.next(fragCount);
+            if (!isOverflow) {
+                return false;
+            }
+        }
+        return true;
+    }
+    clone() {
+        let sol = new Solution(this.rows, this.cols);
+        for (let r = 0; r < this.rows; r++) {
+            for (let c = 0; c < this.cols; c++) {
+                sol.pieces[r][c] = this.pieces[r][c].clone();
+            }
+        }
+        return sol;
     }
     render() {
         let frame = new Svg.SvgFrame();
@@ -128,9 +179,18 @@ class Solution {
         return frame.domEl;
     }
 }
-function generate(rows, cols, fragments) {
+function generate(rows, cols, fragCount) {
     return __awaiter(this, void 0, void 0, function* () {
-        return [new Solution(rows, cols)];
+        let solutions = [];
+        let sol = new Solution(rows, cols);
+        let isDone = false;
+        while (!isDone) {
+            if (sol.isValid() && sol.isUnique()) {
+                solutions.push(sol.clone());
+            }
+            isDone = sol.next(fragCount);
+        }
+        return solutions;
     });
 }
 export { generate };
