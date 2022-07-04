@@ -1,13 +1,4 @@
 "use strict";
-var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
-    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
-    return new (P || (P = Promise))(function (resolve, reject) {
-        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
-        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
-        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
-        step((generator = generator.apply(thisArg, _arguments || [])).next());
-    });
-};
 import * as Svg from './svg.js';
 import * as Maths from './maths.js';
 var Direction;
@@ -41,12 +32,10 @@ class Piece {
     constructor() {
         this.fragments = [0, 0, 0, 0, 0, 0, 0, 0];
     }
-    clone() {
-        let copy = new Piece();
-        for (let id = FragmentPosition.TopLeft; id <= FragmentPosition.LeftTop; id++) {
-            copy.fragments[id] = this.fragments[id];
-        }
-        return copy;
+    static fromObj(obj) {
+        let instance = new Piece();
+        instance.fragments = obj.fragments;
+        return instance;
     }
     render() {
         let group = new Svg.Group();
@@ -112,6 +101,15 @@ class Solution {
             this.pieces.push(row);
         }
     }
+    static fromObj(obj) {
+        let instance = new Solution(obj.rows, obj.cols);
+        for (let r = 0; r < obj.rows; r++) {
+            for (let c = 0; c < obj.cols; c++) {
+                instance.pieces[r][c] = Piece.fromObj(obj.pieces[r][c]);
+            }
+        }
+        return instance;
+    }
     isValid() {
         for (let r = 0; r < this.rows; r++) {
             for (let c = 0; c < this.cols; c++) {
@@ -153,15 +151,6 @@ class Solution {
         }
         return true;
     }
-    clone() {
-        let sol = new Solution(this.rows, this.cols);
-        for (let r = 0; r < this.rows; r++) {
-            for (let c = 0; c < this.cols; c++) {
-                sol.pieces[r][c] = this.pieces[r][c].clone();
-            }
-        }
-        return sol;
-    }
     render() {
         let frame = new Svg.SvgFrame();
         frame.domEl.classList.add("puzzle-solution");
@@ -179,18 +168,15 @@ class Solution {
         return frame.domEl;
     }
 }
-function generate(rows, cols, fragCount) {
-    return __awaiter(this, void 0, void 0, function* () {
-        let solutions = [];
-        let sol = new Solution(rows, cols);
-        let isDone = false;
-        while (!isDone) {
-            if (sol.isValid() && sol.isUnique()) {
-                solutions.push(sol.clone());
-            }
-            isDone = sol.next(fragCount);
+function* generate(rows, cols, fragCount) {
+    let sol = new Solution(rows, cols);
+    let isDone = false;
+    while (!isDone) {
+        if (sol.isValid() && sol.isUnique()) {
+            yield sol;
+            isDone = true;
         }
-        return solutions;
-    });
+        isDone = isDone && sol.next(fragCount);
+    }
 }
-export { generate };
+export { generate, Solution };

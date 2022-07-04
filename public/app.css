@@ -163,8 +163,13 @@ button {
 }
 
 .gen-output .info {
-    top: 0;
-    grid-column: 1/-1;
+    grid-column: 1/-2;
+    grid-row: 1;
+}
+
+.gen-output .cancel-btn {
+    grid-row: 1;
+    justify-self: end;
 }
 
 .gen-output .puzzle-solution {

@@ -27,17 +27,42 @@ function execWithFormData(formData, output) {
         let rows = getIntProp("row_count");
         let cols = getIntProp("col_count");
         let fragments = getIntProp("fragment_count");
-        let solutions = yield Puzzle.generate(rows, cols, fragments);
         while (output.firstChild != null) {
             output.firstChild.remove();
         }
+        let cancel = document.createElement("button");
+        cancel.classList.add("cancel-btn");
+        cancel.innerText = "Cancel";
+        output.appendChild(cancel);
+        let count = 0;
         let info = document.createElement("div");
         info.classList.add("info");
-        info.innerText = `${solutions.length} solution found for ${rows} ${cols} ${fragments}`;
         output.appendChild(info);
-        for (let sol of solutions) {
-            output.appendChild(sol.render());
-        }
+        info.innerText = `${count} solution found for ${rows} ${cols} ${fragments}`;
+        let worker = new Worker("worker.js", { type: "module" });
+        let promise = new Promise((resolve, reject) => {
+            cancel.onclick = () => {
+                resolve(null);
+            };
+            worker.onmessage = (event) => {
+                count++;
+                info.innerText = `${count} solution found for ${rows} ${cols} ${fragments}`;
+                let data = event.data;
+                if (data == null) {
+                    resolve(null);
+                }
+                else {
+                    let sol = Puzzle.Solution.fromObj(data);
+                    console.log(sol);
+                    output.appendChild(sol.render());
+                }
+            };
+        }).then(() => {
+            cancel.disabled = true;
+            worker.terminate();
+        });
+        worker.postMessage({ rows, cols, fragments });
+        return promise;
     });
 }
 function formSubmit(event) {

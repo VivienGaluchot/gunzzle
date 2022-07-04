@@ -42,12 +42,10 @@ class Piece {
         this.fragments = [0, 0, 0, 0, 0, 0, 0, 0];
     }
 
-    clone(): Piece {
-        let copy = new Piece();
-        for (let id = FragmentPosition.TopLeft; id <= FragmentPosition.LeftTop; id++) {
-            copy.fragments[id] = this.fragments[id];
-        }
-        return copy;
+    static fromObj(obj: any) {
+        let instance = new Piece();
+        instance.fragments = obj.fragments;
+        return instance;
     }
 
     render(): Svg.SvgNode {
@@ -105,6 +103,16 @@ class Solution {
     pieces: Piece[][];
     rows: number;
     cols: number;
+
+    static fromObj(obj: any) {
+        let instance = new Solution(obj.rows, obj.cols);
+        for (let r = 0; r < obj.rows; r++) {
+            for (let c = 0; c < obj.cols; c++) {
+                instance.pieces[r][c] = Piece.fromObj(obj.pieces[r][c]);
+            }
+        }
+        return instance;
+    }
 
     constructor(rows: number, cols: number) {
         this.pieces = [];
@@ -164,16 +172,6 @@ class Solution {
         return true;
     }
 
-    clone(): Solution {
-        let sol = new Solution(this.rows, this.cols);
-        for (let r = 0; r < this.rows; r++) {
-            for (let c = 0; c < this.cols; c++) {
-                sol.pieces[r][c] = this.pieces[r][c].clone();
-            }
-        }
-        return sol;
-    }
-
     render(): Element {
         let frame = new Svg.SvgFrame();
         frame.domEl.classList.add("puzzle-solution");
@@ -193,20 +191,16 @@ class Solution {
     }
 }
 
-async function generate(rows: number, cols: number, fragCount: number): Promise<Solution[]> {
-    // TODO run in workers
-    // show solution when found
-    // enable to stop execution
-    let solutions = [];
+function* generate(rows: number, cols: number, fragCount: number) {
     let sol: Solution | null = new Solution(rows, cols);
     let isDone = false;
     while (!isDone) {
         if (sol.isValid() && sol.isUnique()) {
-            solutions.push(sol.clone());
+            yield sol;
+            isDone = true;
         }
-        isDone = sol.next(fragCount);
+        isDone = isDone && sol.next(fragCount);
     }
-    return solutions;
 }
 
-export { generate }
+export { generate, Solution }
