@@ -9,7 +9,7 @@
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Roboto+Serif:opsz,wght@8..144,100;8..144,300;8..144,400;8..144,600;8..144,700;8..144,900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto+Serif:opsz,wght@8..144,400;8..144,630&display=swap" rel="stylesheet">
 
     <script src="app.js" defer type="module"></script>
 </head>
@@ -17,6 +17,9 @@
 <body>
     <h1>Gunzzle</h1>
     <main>
+        <section>
+            <p>Code available <a href="https://github.com/VivienGaluchot/gunzzle">here</a></p>
+        </section>
         <section>
             <h2>4 pieces</h2>
             <p>Generate a 4 piece puzzle.</p>
@@ -27,19 +30,22 @@
                 <input type="number" name="col_count" value="2" min="1" max="100" />
                 <label>Fragment count</label>
                 <input type="number" name="fragment_count" value="4" min="1" max="100" />
-                <button type="submit">Run</button>
             </form>
+            <div class="btn-bar">
+                <button id="btn-run">Run</button>
+                <button id="btn-cancel" class="grey" disabled>Cancel</button>
+            </div>
         </section>
 
         <section class="wide">
             <div class="gen-output">
                 <!-- <svg id="frame" class="altng-frame" xmlns="http://www.w3.org/2000/svg" width="200" height="200">
-                </svg>
-            </div> -->
+                </svg> -->
+            </div>
         </section>
     </main>
     <footer>
-        <a href="https://github.com/VivienGaluchot/gunzzle">code</a>
+        -
     </footer>
 
 </body>
