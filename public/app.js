@@ -53,28 +53,31 @@ function execWithFormData(formData, output, cancelBtn) {
         let worker = new Worker("worker.js", { type: "module" });
         let promise = new Promise((resolve, reject) => {
             cancelBtn.onclick = () => {
-                resolve(null);
+                resolve("canceled");
             };
             worker.onmessage = (event) => {
-                count++;
-                info.innerText = `${count} solution found for ${rows} ${cols} ${fragments} ...`;
                 let data = event.data;
                 if (data == null) {
-                    resolve(null);
+                    resolve("done");
+                    worker.terminate();
                 }
                 else {
                     let sol = Puzzle.Solution.fromObj(data);
                     output.appendChild(sol.render());
+                    count++;
+                    info.innerText = `${count} solutions ...`;
                 }
             };
             worker.onerror = (event) => {
-                console.error("Worker error", event);
-                reject(event);
+                console.error("worker error", event);
+                reject("worker error");
             };
-        }).then(() => {
+        }).then((state) => {
+            info.innerText = `${count} solutions, ${state}`;
             cancelBtn.disabled = true;
-            worker.terminate();
-            info.innerText = `${count} solution found for ${rows} ${cols} ${fragments}`;
+        }).catch(() => {
+            info.innerText = `${count} solutions, error`;
+            cancelBtn.disabled = true;
         });
         cancelBtn.disabled = false;
         worker.postMessage({ rows, cols, fragments });
