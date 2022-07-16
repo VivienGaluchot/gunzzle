@@ -10,98 +10,118 @@ enum Direction {
     Left,
 }
 
-/**
- *       tl   tr
- *       --- ---
- *  rt |         | lt
- *          x
- *  rb |         | lb
- *       --- ---
- *       bl   br
- */
-enum FragmentId {
-    TopLeft = 0,
-    TopRight,
-    RightTop,
-    RightBottom,
-    BottomRight,
-    BottomLeft,
-    LeftBottom,
-    LeftTop,
-}
-
-function increment(matrix: number[][], maxBound: number) {
-    for (let row = 0; row < matrix.length; row++) {
-        for (let col = 0; col < matrix[row].length; col++) {
-            matrix[row][col]++;
-            if (matrix[row][col] < maxBound) {
-                // not an overflow
-                return false;
-            } else {
-                // overflow
-                matrix[row][col] = 0;
-            }
+function matrixIncrement(matrix: number[], maxBound: number) {
+    for (let idx = 0; idx < matrix.length; idx++) {
+        if (matrix[idx] == -1) {
+            matrix[idx] = 1;
+        } else {
+            matrix[idx]++;
+        }
+        if (matrix[idx] < maxBound) {
+            // not an overflow
+            return false;
+        } else {
+            // overflow
+            matrix[idx] = -1 * maxBound;
         }
     }
     // done
     return true;
 }
 
+function* swappable(rows: number, cols: number) {
+    // TODO make generic, output direction ?
+    // return directly fragments with orientation normalized ?
+    yield [[0, 0], [0, 1]];
+    yield [[0, 0], [1, 0]];
+    yield [[1, 1], [0, 1]];
+    yield [[1, 1], [1, 0]];
+}
+
 class Solution {
+    maxBound: number;
     rows: number;
     cols: number;
-    matrix: number[][];
+    matrix: number[];
 
     static fromObj(obj: any) {
-        let instance = new Solution(obj.rows, obj.cols);
+        let instance = new Solution(obj.rows, obj.cols, obj.maxBound);
         instance.matrix = obj.matrix;
         return instance;
     }
 
-    constructor(rows: number, cols: number) {
-        this.matrix = [];
+    constructor(rows: number, cols: number, maxBound: number) {
+        this.maxBound = maxBound;
         this.rows = rows;
         this.cols = cols;
-        let mRow = 3 * rows + 1;
-        for (let i = 0; i < mRow; i++) {
-            let rowLen = 0;
-            if ((i % 3) == 0) {
-                rowLen = 2 * cols;
-            } else {
-                rowLen = 2 * cols + 1;
+        let len = 4 * rows * cols;
+        this.matrix = new Array(len).fill(-1 * maxBound);
+    }
+
+    getFragment(row: number, col: number, index: Direction) {
+        let colSize = 4;
+        let rowSize = this.cols * colSize;
+        return this.matrix[row * rowSize + col * colSize + index];
+    }
+
+    getFragments(row: number, col: number) {
+        let colSize = 4;
+        let rowSize = this.cols * colSize;
+        let idx = row * rowSize + col * colSize;
+        return this.matrix.slice(idx, idx + 4);
+    }
+
+    isValid(): boolean {
+        // local validation
+        for (let row = 0; row < this.rows; row++) {
+            for (let col = 0; col < this.cols; col++) {
+                let frs = this.getFragments(row, col);
+                if (frs[Direction.Top] == frs[Direction.Bottom]) {
+                    return false;
+                }
+                if (frs[Direction.Left] == frs[Direction.Right]) {
+                    return false;
+                }
+                if (frs[Direction.Bottom] == frs[Direction.Right]
+                    && frs[Direction.Left] == frs[Direction.Top]) {
+                    return false;
+                }
+                if (frs[Direction.Bottom] == frs[Direction.Left]
+                    && frs[Direction.Right] == frs[Direction.Top]) {
+                    return false;
+                }
             }
-            this.matrix.push(new Array(rowLen).fill(0));
         }
-    }
-
-    getFragment(row: number, col: number, index: FragmentId) {
-        const MATRIX_LOOKUP = [
-            // TopLeft
-            { r: 0, c: 0 },
-            // TopRight
-            { r: 0, c: 1 },
-            // RightTop
-            { r: 1, c: 1 },
-            // RightBottom
-            { r: 2, c: 1 },
-            // BottomRight
-            { r: 3, c: 1 },
-            // BottomLeft
-            { r: 3, c: 0 },
-            // LeftBottom
-            { r: 2, c: 0 },
-            // LeftTop
-            { r: 1, c: 0 },];
-        return this.matrix[MATRIX_LOOKUP[index].r + (3 * row)][MATRIX_LOOKUP[index].c + col];
-    }
-
-    isUnique(): boolean {
-        // TODO
+        // H match check
+        for (let row = 0; row < this.rows; row++) {
+            for (let col = 0; col < this.cols - 1; col++) {
+                if (this.getFragment(row, col, Direction.Right)
+                    != -1 * this.getFragment(row, col + 1, Direction.Left)) {
+                    return false;
+                }
+            }
+        }
+        // V match check
+        for (let row = 0; row < this.rows - 1; row++) {
+            for (let col = 0; col < this.cols; col++) {
+                if (this.getFragment(row, col, Direction.Bottom)
+                    != -1 * this.getFragment(row + 1, col, Direction.Top)) {
+                    return false;
+                }
+            }
+        }
+        // TODO pair validation
+        // for (let pairs of swappable(this.rows, this.cols)) {
+        //     let aRow = pairs[0][0];
+        //     let aCol = pairs[0][1];
+        //     let bRow = pairs[1][0];
+        //     let bCol = pairs[1][1];
+        // }
         return true;
     }
 
-    next(fragCount: number): boolean {
-        return increment(this.matrix, fragCount);
+    next(): boolean {
+        return matrixIncrement(this.matrix, this.maxBound);
     }
 
     render(): Element {
@@ -118,18 +138,13 @@ class Solution {
                 piece.appendChild(new Svg.Rect(2, 2, 6, 6, { className: "piece-block" }));
                 piece.appendChild(new Svg.Text(`${row}, ${col}`, 5, 5, { className: "piece-coord" }));
 
-                let a = 10 / 3;
-                let b = 10 / 3 * 2
+                let a = 5;
                 let txtPos = [
                     new Maths.Vector(a, 1.5),
-                    new Maths.Vector(b, 1.5),
                     new Maths.Vector(9, a),
-                    new Maths.Vector(9, b),
-                    new Maths.Vector(b, 9.5),
                     new Maths.Vector(a, 9.5),
-                    new Maths.Vector(1, b),
                     new Maths.Vector(1, a)];
-                for (let id = FragmentId.TopLeft; id <= FragmentId.LeftTop; id++) {
+                for (let id = Direction.Top; id <= Direction.Left; id++) {
                     let fr = this.getFragment(row, col, id);
                     let pos = txtPos[id];
                     piece.appendChild(new Svg.Text(fr.toString(), pos.x, pos.y, { className: "fragment-label" }));
@@ -143,16 +158,16 @@ class Solution {
     }
 }
 
-function* generate(rows: number, cols: number, fragCount: number) {
-    let sol: Solution | null = new Solution(rows, cols);
+function* generate(rows: number, cols: number, maxBound: number) {
+    let sol: Solution | null = new Solution(rows, cols, maxBound);
     let isDone = false;
     let count = 0;
     while (!isDone) {
-        if (sol.isUnique()) {
+        if (sol.isValid()) {
             yield sol;
+            count++;
         }
-        isDone = sol.next(fragCount);
-        count++;
+        isDone = sol.next();
         if (count >= 100) {
             isDone = true;
         }
