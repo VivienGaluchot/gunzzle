@@ -49,7 +49,7 @@ function execWithFormData(formData, output, cancelBtn) {
         let info = document.createElement("div");
         info.classList.add("info");
         output.appendChild(info);
-        info.innerText = `starting ...`;
+        info.innerText = `running ...`;
         let worker = new Worker("worker.js", { type: "module" });
         let promise = new Promise((resolve, reject) => {
             cancelBtn.onclick = () => {
