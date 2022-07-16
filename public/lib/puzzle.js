@@ -8,21 +8,24 @@ var Direction;
     Direction[Direction["Bottom"] = 2] = "Bottom";
     Direction[Direction["Left"] = 3] = "Left";
 })(Direction || (Direction = {}));
-function matrixIncrement(matrix, maxBound) {
+function matrixIncrement(matrix, maxBound, pilots) {
     for (let idx = 0; idx < matrix.length; idx++) {
-        if (matrix[idx] == -1) {
-            matrix[idx] = 1;
-        }
-        else {
-            matrix[idx]++;
-        }
-        if (matrix[idx] < maxBound) {
-            // not an overflow
-            return false;
-        }
-        else {
-            // overflow
-            matrix[idx] = -1 * maxBound;
+        if (pilots[idx] == null) {
+            // non piloted fragment
+            if (matrix[idx] == -1) {
+                matrix[idx] = 1;
+            }
+            else {
+                matrix[idx]++;
+            }
+            if (matrix[idx] < maxBound) {
+                // not an overflow
+                return false;
+            }
+            else {
+                // overflow
+                matrix[idx] = -1 * maxBound;
+            }
         }
     }
     // done
@@ -41,8 +44,26 @@ class Solution {
         this.maxBound = maxBound;
         this.rows = rows;
         this.cols = cols;
-        let len = 4 * rows * cols;
+        this.colSize = 4;
+        this.rowSize = this.cols * this.colSize;
+        let len = this.rowSize * rows;
         this.matrix = new Array(len).fill(-1 * maxBound);
+        this.pilots = new Array(len).fill(null);
+        // H pilots
+        for (let row = 0; row < this.rows; row++) {
+            for (let col = 1; col < this.cols; col++) {
+                this.pilots[row * this.rowSize + col * this.colSize + Direction.Left]
+                    = row * this.rowSize + (col - 1) * this.colSize + Direction.Right;
+            }
+        }
+        // V pilots
+        for (let row = 1; row < this.rows; row++) {
+            for (let col = 0; col < this.cols; col++) {
+                this.pilots[row * this.rowSize + col * this.colSize + Direction.Top]
+                    = (row - 1) * this.rowSize + col * this.colSize + Direction.Bottom;
+            }
+        }
+        console.log(this.pilots);
     }
     static fromObj(obj) {
         let instance = new Solution(obj.rows, obj.cols, obj.maxBound);
@@ -50,9 +71,7 @@ class Solution {
         return instance;
     }
     getFragment(row, col, index) {
-        let colSize = 4;
-        let rowSize = this.cols * colSize;
-        return this.matrix[row * rowSize + col * colSize + index];
+        return this.matrix[row * this.rowSize + col * this.colSize + index];
     }
     getFragments(row, col) {
         let colSize = 4;
@@ -109,7 +128,15 @@ class Solution {
         return true;
     }
     next() {
-        return matrixIncrement(this.matrix, this.maxBound);
+        let isDone = matrixIncrement(this.matrix, this.maxBound, this.pilots);
+        for (let idx = 0; idx < this.matrix.length; idx++) {
+            let ref = this.pilots[idx];
+            if (ref != null) {
+                this.matrix[idx] = -1 * this.matrix[ref];
+            }
+        }
+        ;
+        return isDone;
     }
     render() {
         let frame = new Svg.SvgFrame();

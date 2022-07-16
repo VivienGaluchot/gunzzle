@@ -2,6 +2,7 @@
 
 import * as Svg from './svg.js';
 import * as Maths from './maths.js';
+import { isDoStatement } from '../../node_modules/typescript/lib/typescript.js';
 
 enum Direction {
     Top = 0,
@@ -10,19 +11,22 @@ enum Direction {
     Left,
 }
 
-function matrixIncrement(matrix: number[], maxBound: number) {
+function matrixIncrement(matrix: number[], maxBound: number, pilots: (number | null)[]) {
     for (let idx = 0; idx < matrix.length; idx++) {
-        if (matrix[idx] == -1) {
-            matrix[idx] = 1;
-        } else {
-            matrix[idx]++;
-        }
-        if (matrix[idx] < maxBound) {
-            // not an overflow
-            return false;
-        } else {
-            // overflow
-            matrix[idx] = -1 * maxBound;
+        if (pilots[idx] == null) {
+            // non piloted fragment
+            if (matrix[idx] == -1) {
+                matrix[idx] = 1;
+            } else {
+                matrix[idx]++;
+            }
+            if (matrix[idx] < maxBound) {
+                // not an overflow
+                return false;
+            } else {
+                // overflow
+                matrix[idx] = -1 * maxBound;
+            }
         }
     }
     // done
@@ -44,6 +48,10 @@ class Solution {
     cols: number;
     matrix: number[];
 
+    private colSize: number;
+    private rowSize: number;
+    private pilots: (number | null)[];
+
     static fromObj(obj: any) {
         let instance = new Solution(obj.rows, obj.cols, obj.maxBound);
         instance.matrix = obj.matrix;
@@ -54,14 +62,32 @@ class Solution {
         this.maxBound = maxBound;
         this.rows = rows;
         this.cols = cols;
-        let len = 4 * rows * cols;
+
+        this.colSize = 4;
+        this.rowSize = this.cols * this.colSize;
+
+        let len = this.rowSize * rows;
         this.matrix = new Array(len).fill(-1 * maxBound);
+        this.pilots = new Array(len).fill(null);
+        // H pilots
+        for (let row = 0; row < this.rows; row++) {
+            for (let col = 1; col < this.cols; col++) {
+                this.pilots[row * this.rowSize + col * this.colSize + Direction.Left]
+                    = row * this.rowSize + (col - 1) * this.colSize + Direction.Right;
+            }
+        }
+        // V pilots
+        for (let row = 1; row < this.rows; row++) {
+            for (let col = 0; col < this.cols; col++) {
+                this.pilots[row * this.rowSize + col * this.colSize + Direction.Top]
+                    = (row - 1) * this.rowSize + col * this.colSize + Direction.Bottom;
+            }
+        }
+        console.log(this.pilots);
     }
 
     getFragment(row: number, col: number, index: Direction) {
-        let colSize = 4;
-        let rowSize = this.cols * colSize;
-        return this.matrix[row * rowSize + col * colSize + index];
+        return this.matrix[row * this.rowSize + col * this.colSize + index];
     }
 
     getFragments(row: number, col: number) {
@@ -92,24 +118,6 @@ class Solution {
                 }
             }
         }
-        // H match check
-        for (let row = 0; row < this.rows; row++) {
-            for (let col = 0; col < this.cols - 1; col++) {
-                if (this.getFragment(row, col, Direction.Right)
-                    != -1 * this.getFragment(row, col + 1, Direction.Left)) {
-                    return false;
-                }
-            }
-        }
-        // V match check
-        for (let row = 0; row < this.rows - 1; row++) {
-            for (let col = 0; col < this.cols; col++) {
-                if (this.getFragment(row, col, Direction.Bottom)
-                    != -1 * this.getFragment(row + 1, col, Direction.Top)) {
-                    return false;
-                }
-            }
-        }
         // TODO pair validation
         // for (let pairs of swappable(this.rows, this.cols)) {
         //     let aRow = pairs[0][0];
@@ -121,7 +129,14 @@ class Solution {
     }
 
     next(): boolean {
-        return matrixIncrement(this.matrix, this.maxBound);
+        let isDone = matrixIncrement(this.matrix, this.maxBound, this.pilots);
+        for (let idx = 0; idx < this.matrix.length; idx++) {
+            let ref = this.pilots[idx];
+            if (ref != null) {
+                this.matrix[idx] = -1 * this.matrix[ref];
+            }
+        };
+        return isDone;
     }
 
     render(): Element {
