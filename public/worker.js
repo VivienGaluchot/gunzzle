@@ -11,7 +11,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 import * as Puzzle from './lib/puzzle.js';
 onmessage = (event) => __awaiter(void 0, void 0, void 0, function* () {
     let data = event.data;
-    console.log('Worker generation started', data);
+    console.log('Worker generation started');
     for (let solution of Puzzle.generate(data.rows, data.cols, data.fragments)) {
         postMessage(solution);
     }

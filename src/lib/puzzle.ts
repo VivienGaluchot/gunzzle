@@ -2,7 +2,6 @@
 
 import * as Svg from './svg.js';
 import * as Maths from './maths.js';
-import { isDoStatement } from '../../node_modules/typescript/lib/typescript.js';
 
 enum Direction {
     Top = 0,
@@ -11,8 +10,19 @@ enum Direction {
     Left,
 }
 
+interface Pos {
+    row: number,
+    col: number
+}
+
+interface Pair {
+    first: Pos,
+    second: Pos
+}
+
 function matrixIncrement(matrix: number[], maxBound: number, pilots: (number | null)[]) {
-    for (let idx = 0; idx < matrix.length; idx++) {
+    // skip first fragment as the value is selected arbitrarily
+    for (let idx = 1; idx < matrix.length; idx++) {
         if (pilots[idx] == null) {
             // non piloted fragment
             if (matrix[idx] == -1) {
@@ -31,15 +41,6 @@ function matrixIncrement(matrix: number[], maxBound: number, pilots: (number | n
     }
     // done
     return true;
-}
-
-function* swappable(rows: number, cols: number) {
-    // TODO make generic, output direction ?
-    // return directly fragments with orientation normalized ?
-    yield [[0, 0], [0, 1]];
-    yield [[0, 0], [1, 0]];
-    yield [[1, 1], [0, 1]];
-    yield [[1, 1], [1, 0]];
 }
 
 class Solution {
@@ -70,61 +71,100 @@ class Solution {
         this.matrix = new Array(len).fill(-1 * maxBound);
         this.pilots = new Array(len).fill(null);
         // H pilots
-        for (let row = 0; row < this.rows; row++) {
-            for (let col = 1; col < this.cols; col++) {
-                this.pilots[row * this.rowSize + col * this.colSize + Direction.Left]
-                    = row * this.rowSize + (col - 1) * this.colSize + Direction.Right;
-            }
+        for (let pair of this.hPairs()) {
+            this.pilots[this.getFragmentIndex(pair.first, Direction.Right)]
+                = this.getFragmentIndex(pair.second, Direction.Left);
         }
         // V pilots
-        for (let row = 1; row < this.rows; row++) {
+        for (let pair of this.vPairs()) {
+            this.pilots[this.getFragmentIndex(pair.first, Direction.Bottom)]
+                = this.getFragmentIndex(pair.second, Direction.Top);
+        }
+    }
+
+    // utils
+
+    * eachPos(): Generator<Pos> {
+        for (let row = 0; row < this.rows; row++) {
             for (let col = 0; col < this.cols; col++) {
-                this.pilots[row * this.rowSize + col * this.colSize + Direction.Top]
-                    = (row - 1) * this.rowSize + col * this.colSize + Direction.Bottom;
+                yield { row: row, col: col };
             }
         }
-        console.log(this.pilots);
     }
 
-    getFragment(row: number, col: number, index: Direction) {
-        return this.matrix[row * this.rowSize + col * this.colSize + index];
+    * hPairs(): Generator<Pair> {
+        for (let row = 0; row < this.rows; row++) {
+            for (let col = 1; col < this.cols; col++) {
+                yield { first: { row: row, col: col - 1 }, second: { row: row, col: col } };
+            }
+        }
     }
 
-    getFragments(row: number, col: number) {
+    * vPairs(): Generator<Pair> {
+        for (let row = 1; row < this.rows; row++) {
+            for (let col = 0; col < this.cols; col++) {
+                yield { first: { row: row - 1, col: col }, second: { row: row, col: col } };
+            }
+        }
+    }
+
+    getFragmentIndex(pos: Pos, dir: Direction): number {
+        return pos.row * this.rowSize + pos.col * this.colSize + dir;
+    }
+
+    getFragment(pos: Pos, dir: Direction): number {
+        return this.matrix[this.getFragmentIndex(pos, dir)];
+    }
+
+    getFragments(pos: Pos): number[] {
         let colSize = 4;
         let rowSize = this.cols * colSize;
-        let idx = row * rowSize + col * colSize;
+        let idx = pos.row * rowSize + pos.col * colSize;
         return this.matrix.slice(idx, idx + 4);
     }
 
+    // puzzle logic
+
     isValid(): boolean {
         // local validation
-        for (let row = 0; row < this.rows; row++) {
-            for (let col = 0; col < this.cols; col++) {
-                let frs = this.getFragments(row, col);
-                if (frs[Direction.Top] == frs[Direction.Bottom]) {
-                    return false;
-                }
-                if (frs[Direction.Left] == frs[Direction.Right]) {
-                    return false;
-                }
-                if (frs[Direction.Bottom] == frs[Direction.Right]
-                    && frs[Direction.Left] == frs[Direction.Top]) {
-                    return false;
-                }
-                if (frs[Direction.Bottom] == frs[Direction.Left]
-                    && frs[Direction.Right] == frs[Direction.Top]) {
-                    return false;
-                }
+        for (let pos of this.eachPos()) {
+            let frs = this.getFragments(pos);
+            if (frs[Direction.Top] == frs[Direction.Bottom]) {
+                return false;
+            }
+            if (frs[Direction.Left] == frs[Direction.Right]) {
+                return false;
+            }
+            if (frs[Direction.Bottom] == frs[Direction.Right]
+                && frs[Direction.Left] == frs[Direction.Top]) {
+                return false;
+            }
+            if (frs[Direction.Bottom] == frs[Direction.Left]
+                && frs[Direction.Right] == frs[Direction.Top]) {
+                return false;
             }
         }
-        // TODO pair validation
-        // for (let pairs of swappable(this.rows, this.cols)) {
-        //     let aRow = pairs[0][0];
-        //     let aCol = pairs[0][1];
-        //     let bRow = pairs[1][0];
-        //     let bCol = pairs[1][1];
-        // }
+        // pair validation
+        for (let pair of this.hPairs()) {
+            let first = this.getFragments(pair.first);
+            let second = this.getFragments(pair.second);
+            if (first[Direction.Top] == second[Direction.Top]) {
+                return false;
+            }
+            if (first[Direction.Bottom] == second[Direction.Bottom]) {
+                return false;
+            }
+        }
+        for (let pair of this.vPairs()) {
+            let first = this.getFragments(pair.first);
+            let second = this.getFragments(pair.second);
+            if (first[Direction.Right] == second[Direction.Right]) {
+                return false;
+            }
+            if (first[Direction.Left] == second[Direction.Left]) {
+                return false;
+            }
+        }
         return true;
     }
 
@@ -146,28 +186,25 @@ class Solution {
         frame.appendChild(group);
 
         frame.safeView = new Maths.Rect(new Maths.Vector(0, 0), new Maths.Vector(this.cols * 10, this.rows * 10));
-        for (let row = 0; row < this.rows; row++) {
-            for (let col = 0; col < this.cols; col++) {
-                let piece = new Svg.Group();
-                piece.domEl.classList.add("piece");
-                piece.appendChild(new Svg.Rect(2, 2, 6, 6, { className: "piece-block" }));
-                piece.appendChild(new Svg.Text(`${row}, ${col}`, 5, 5, { className: "piece-coord" }));
+        for (let pos of this.eachPos()) {
+            let piece = new Svg.Group();
+            piece.domEl.classList.add("piece");
+            piece.appendChild(new Svg.Rect(2, 2, 6, 6, { className: "piece-block" }));
+            piece.appendChild(new Svg.Text(`${pos.row}, ${pos.col}`, 5, 5, { className: "piece-coord" }));
 
-                let a = 5;
-                let txtPos = [
-                    new Maths.Vector(a, 1.5),
-                    new Maths.Vector(9, a),
-                    new Maths.Vector(a, 9.5),
-                    new Maths.Vector(1, a)];
-                for (let id = Direction.Top; id <= Direction.Left; id++) {
-                    let fr = this.getFragment(row, col, id);
-                    let pos = txtPos[id];
-                    piece.appendChild(new Svg.Text(fr.toString(), pos.x, pos.y, { className: "fragment-label" }));
-                }
-
-                piece.translation = new Maths.Vector(col * 10, row * 10);
-                group.appendChild(piece);
+            let a = 5;
+            let txtPos = [
+                new Maths.Vector(a, 1.5),
+                new Maths.Vector(9, a),
+                new Maths.Vector(a, 9.5),
+                new Maths.Vector(1, a)];
+            for (let id = Direction.Top; id <= Direction.Left; id++) {
+                let fr = this.getFragment(pos, id);
+                piece.appendChild(new Svg.Text(fr.toString(), txtPos[id].x, txtPos[id].y, { className: "fragment-label" }));
             }
+
+            piece.translation = new Maths.Vector(pos.col * 10, pos.row * 10);
+            group.appendChild(piece);
         }
         return frame.domEl;
     }
