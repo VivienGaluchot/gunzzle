@@ -22,6 +22,10 @@ interface Pair {
     second: Pos
 }
 
+interface FragmentIndex {
+    idx: number, sign: number
+}
+
 function matrixIncrement(matrix: number[], maxBound: number) {
     // skip first fragment as the value is selected arbitrarily
     for (let idx = 1; idx < matrix.length; idx++) {
@@ -78,24 +82,31 @@ class FragmentMatrix {
 
     // fragments
 
-    getIndex(pos: Pos, dir: Direction): number {
+    getFrIndex(pos: Pos, dir: Direction): FragmentIndex {
+        let idx = 0;
+        let sign = 1;
         if (pos.row == 0 && dir == Direction.Top) {
-            return pos.col;
+            idx = pos.col;
         } else if (pos.col == 0 && dir == Direction.Left) {
-            return this.rows + pos.row;
+            idx = this.rows + pos.row;
         } else if (dir == Direction.Top) {
-            return this.rows + this.cols +
+            idx = this.rows + this.cols +
                 (pos.row - 1) * this.rowSize + pos.col * this.colSize + Direction.Bottom - 1;
+            sign = -1;
         } else if (dir == Direction.Left) {
-            return this.rows + this.cols +
+            idx = this.rows + this.cols +
                 pos.row * this.rowSize + (pos.col - 1) * this.colSize + Direction.Right - 1;
+            sign = -1;
+        } else {
+            idx = this.rows + this.cols +
+                pos.row * this.rowSize + pos.col * this.colSize + dir - 1;
         }
-        return this.rows + this.cols +
-            pos.row * this.rowSize + pos.col * this.colSize + dir - 1;
+        return { idx, sign };
     }
 
     at(pos: Pos, dir: Direction): number {
-        return this.array[this.getIndex(pos, dir)];
+        let index = this.getFrIndex(pos, dir);
+        return this.array[index.idx] * index.sign;
     }
 
     // cells
@@ -139,7 +150,7 @@ class FragmentMatrix {
 
 class Lookup {
     readonly matrix: FragmentMatrix;
-    readonly array: number[];
+    readonly array: FragmentIndex[];
 
     constructor(matrix: FragmentMatrix) {
         this.matrix = matrix;
@@ -147,15 +158,16 @@ class Lookup {
 
         for (let pos of this.matrix.everyPos()) {
             for (let dir = Direction.Top; dir <= Direction.Left; dir++) {
-                let index = pos.row * this.matrix.cols * 4 + pos.col * 4 + dir;
-                this.array[index] = this.matrix.getIndex(pos, dir);
+                let lkIdx = pos.row * this.matrix.cols * 4 + pos.col * 4 + dir;
+                this.array[lkIdx] = this.matrix.getFrIndex(pos, dir);
             }
         }
     }
 
     at(pos: Pos, dir: Direction) {
-        let index = pos.row * this.matrix.cols * 4 + pos.col * 4 + dir;
-        return this.matrix.array[this.array[index]];
+        let lkIdx = pos.row * this.matrix.cols * 4 + pos.col * 4 + dir;
+        let frIndex = this.array[lkIdx];
+        return this.matrix.array[frIndex.idx] * frIndex.sign;
     }
 }
 
