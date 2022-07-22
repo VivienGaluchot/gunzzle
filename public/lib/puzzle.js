@@ -8,58 +8,69 @@ var Direction;
     Direction[Direction["Bottom"] = 2] = "Bottom";
     Direction[Direction["Left"] = 3] = "Left";
 })(Direction || (Direction = {}));
-function matrixIncrement(matrix, maxBound, pilots) {
+const DIRECTION_COUNT = 4;
+function matrixIncrement(matrix, maxBound) {
     // skip first fragment as the value is selected arbitrarily
     for (let idx = 1; idx < matrix.length; idx++) {
-        if (pilots[idx] == null) {
-            // non piloted fragment
-            if (matrix[idx] == -1) {
-                matrix[idx] = 1;
-            }
-            else {
-                matrix[idx]++;
-            }
-            if (matrix[idx] < maxBound) {
-                // not an overflow
-                return false;
-            }
-            else {
-                // overflow
-                matrix[idx] = -1 * maxBound;
-            }
+        if (matrix[idx] == -1) {
+            matrix[idx] = 1;
+        }
+        else {
+            matrix[idx]++;
+        }
+        if (matrix[idx] < maxBound) {
+            // not an overflow
+            return false;
+        }
+        else {
+            // overflow
+            matrix[idx] = -1 * maxBound;
         }
     }
     // done
     return true;
 }
-class Solution {
-    constructor(rows, cols, maxBound) {
-        this.maxBound = maxBound;
+class FragmentMatrix {
+    constructor(rows, cols, initial) {
         this.rows = rows;
         this.cols = cols;
-        this.colSize = 4;
+        this.colSize = 2;
         this.rowSize = this.cols * this.colSize;
-        let len = this.rowSize * rows;
-        this.matrix = new Array(len).fill(-1 * maxBound);
-        this.pilots = new Array(len).fill(null);
-        // H pilots
-        for (let pair of this.hPairs()) {
-            this.pilots[this.getFragmentIndex(pair.first, Direction.Right)]
-                = this.getFragmentIndex(pair.second, Direction.Left);
-        }
-        // V pilots
-        for (let pair of this.vPairs()) {
-            this.pilots[this.getFragmentIndex(pair.first, Direction.Bottom)]
-                = this.getFragmentIndex(pair.second, Direction.Top);
-        }
+        let len = this.rows * this.cols * 2 + this.rows + this.cols;
+        this.array = new Array(len).fill(initial);
     }
     static fromObj(obj) {
-        let instance = new Solution(obj.rows, obj.cols, obj.maxBound);
-        instance.matrix = obj.matrix;
+        let instance = new FragmentMatrix(obj.rows, obj.cols, 0);
+        instance.array = obj.array;
         return instance;
     }
-    // utils
-    *eachPos() {
+    get length() {
+        return this.array.length;
+    }
+    // fragments
+    getIndex(pos, dir) {
+        if (pos.row == 0 && dir == Direction.Top) {
+            return pos.col;
+        }
+        else if (pos.col == 0 && dir == Direction.Left) {
+            return this.rows + pos.row;
+        }
+        else if (dir == Direction.Top) {
+            return this.rows + this.cols +
+                (pos.row - 1) * this.rowSize + pos.col * this.colSize + Direction.Bottom - 1;
+        }
+        else if (dir == Direction.Left) {
+            return this.rows + this.cols +
+                pos.row * this.rowSize + (pos.col - 1) * this.colSize + Direction.Right - 1;
+        }
+        return this.rows + this.cols +
+            pos.row * this.rowSize + pos.col * this.colSize + dir - 1;
+    }
+    at(pos, dir) {
+        return this.array[this.getIndex(pos, dir)];
+    }
+    // cells
+    *everyPos() {
         for (let row = 0; row < this.rows; row++) {
             for (let col = 0; col < this.cols; col++) {
                 yield { row: row, col: col };
@@ -80,79 +91,97 @@ class Solution {
             }
         }
     }
-    getFragmentIndex(pos, dir) {
-        return pos.row * this.rowSize + pos.col * this.colSize + dir;
+    // brute force
+    *swipe(maxBound) {
+        let isDone = false;
+        yield this;
+        while (!isDone) {
+            isDone = matrixIncrement(this.array, maxBound);
+            yield this;
+        }
     }
-    getFragment(pos, dir) {
-        return this.matrix[this.getFragmentIndex(pos, dir)];
+}
+class Lookup {
+    constructor(matrix) {
+        this.matrix = matrix;
+        this.array = new Array(matrix.rows * matrix.cols * DIRECTION_COUNT).fill(0);
+        for (let pos of this.matrix.everyPos()) {
+            for (let dir = Direction.Top; dir <= Direction.Left; dir++) {
+                let index = pos.row * this.matrix.cols * 4 + pos.col * 4 + dir;
+                this.array[index] = this.matrix.getIndex(pos, dir);
+            }
+        }
     }
-    getFragments(pos) {
-        let colSize = 4;
-        let rowSize = this.cols * colSize;
-        let idx = pos.row * rowSize + pos.col * colSize;
-        return this.matrix.slice(idx, idx + 4);
+    at(pos, dir) {
+        let index = pos.row * this.matrix.cols * 4 + pos.col * 4 + dir;
+        return this.matrix.array[this.array[index]];
+    }
+}
+class Transform {
+    constructor(rows, cols) {
+        this.rows = rows;
+        this.cols = cols;
+        this.colSize = 4;
+        this.rowSize = this.cols * this.colSize;
+        let len = this.rowSize * rows;
+        this.matrix = new Array(len).fill(0);
+    }
+    *all() {
+        // TODO
+    }
+}
+class Solution {
+    constructor(rows, cols, maxBound) {
+        this.maxBound = maxBound;
+        this.matrix = new FragmentMatrix(rows, cols, -1 * maxBound);
+        this.lookup = new Lookup(this.matrix);
+    }
+    static fromObj(obj) {
+        let instance = new Solution(obj.matrix.rows, obj.matrix.cols, obj.maxBound);
+        instance.matrix = FragmentMatrix.fromObj(obj.matrix);
+        instance.lookup = new Lookup(instance.matrix);
+        return instance;
     }
     // puzzle logic
-    isValid() {
-        // local validation
-        for (let pos of this.eachPos()) {
-            let frs = this.getFragments(pos);
-            if (frs[Direction.Top] == frs[Direction.Bottom]) {
+    isUnique() {
+        // local validation heuristic
+        for (let pos of this.matrix.everyPos()) {
+            if (this.lookup.at(pos, Direction.Top) ==
+                this.lookup.at(pos, Direction.Bottom)) {
                 return false;
             }
-            if (frs[Direction.Left] == frs[Direction.Right]) {
+            if (this.lookup.at(pos, Direction.Left) ==
+                this.lookup.at(pos, Direction.Right)) {
                 return false;
             }
-            if (frs[Direction.Bottom] == frs[Direction.Right]
-                && frs[Direction.Left] == frs[Direction.Top]) {
+            if (this.lookup.at(pos, Direction.Bottom) ==
+                this.lookup.at(pos, Direction.Right)
+                && this.lookup.at(pos, Direction.Left) ==
+                    this.lookup.at(pos, Direction.Top)) {
                 return false;
             }
-            if (frs[Direction.Bottom] == frs[Direction.Left]
-                && frs[Direction.Right] == frs[Direction.Top]) {
-                return false;
-            }
-        }
-        // pair validation
-        for (let pair of this.hPairs()) {
-            let first = this.getFragments(pair.first);
-            let second = this.getFragments(pair.second);
-            if (first[Direction.Top] == second[Direction.Top]) {
-                return false;
-            }
-            if (first[Direction.Bottom] == second[Direction.Bottom]) {
-                return false;
-            }
-        }
-        for (let pair of this.vPairs()) {
-            let first = this.getFragments(pair.first);
-            let second = this.getFragments(pair.second);
-            if (first[Direction.Right] == second[Direction.Right]) {
-                return false;
-            }
-            if (first[Direction.Left] == second[Direction.Left]) {
+            if (this.lookup.at(pos, Direction.Bottom) ==
+                this.lookup.at(pos, Direction.Left)
+                && this.lookup.at(pos, Direction.Right) ==
+                    this.lookup.at(pos, Direction.Top)) {
                 return false;
             }
         }
         return true;
     }
-    next() {
-        let isDone = matrixIncrement(this.matrix, this.maxBound, this.pilots);
-        for (let idx = 0; idx < this.matrix.length; idx++) {
-            let ref = this.pilots[idx];
-            if (ref != null) {
-                this.matrix[idx] = -1 * this.matrix[ref];
-            }
+    // brute force
+    *swipe() {
+        for (let _ of this.matrix.swipe(this.maxBound)) {
+            yield null;
         }
-        ;
-        return isDone;
     }
     render() {
         let frame = new Svg.SvgFrame();
         frame.domEl.classList.add("puzzle-solution");
         let group = new Svg.Group();
         frame.appendChild(group);
-        frame.safeView = new Maths.Rect(new Maths.Vector(0, 0), new Maths.Vector(this.cols * 10, this.rows * 10));
-        for (let pos of this.eachPos()) {
+        frame.safeView = new Maths.Rect(new Maths.Vector(0, 0), new Maths.Vector(this.matrix.cols * 10, this.matrix.rows * 10));
+        for (let pos of this.matrix.everyPos()) {
             let piece = new Svg.Group();
             piece.domEl.classList.add("piece");
             piece.appendChild(new Svg.Rect(2, 2, 6, 6, { className: "piece-block" }));
@@ -165,7 +194,7 @@ class Solution {
                 new Maths.Vector(1, a)
             ];
             for (let id = Direction.Top; id <= Direction.Left; id++) {
-                let fr = this.getFragment(pos, id);
+                let fr = this.matrix.at(pos, id);
                 piece.appendChild(new Svg.Text(fr.toString(), txtPos[id].x, txtPos[id].y, { className: "fragment-label" }));
             }
             piece.translation = new Maths.Vector(pos.col * 10, pos.row * 10);
@@ -175,18 +204,19 @@ class Solution {
     }
 }
 function* generate(rows, cols, maxBound) {
+    let yieldCount = 0;
+    let totalTry = 0;
     let sol = new Solution(rows, cols, maxBound);
-    let isDone = false;
-    let count = 0;
-    while (!isDone) {
-        if (sol.isValid()) {
+    for (let _ of sol.swipe()) {
+        totalTry++;
+        if (sol.isUnique()) {
             yield sol;
-            count++;
+            yieldCount++;
         }
-        isDone = sol.next();
-        if (count >= 100) {
-            isDone = true;
+        if (yieldCount >= 20) {
+            break;
         }
     }
+    console.log("Total try", totalTry);
 }
 export { generate, Solution };
