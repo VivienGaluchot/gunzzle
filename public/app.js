@@ -63,7 +63,7 @@ function execWithFormData(formData, output, cancelBtn) {
                     resolve("done");
                 }
                 else {
-                    let sol = Puzzle.Solution.fromObj(data);
+                    let sol = Puzzle.Solution.deserialize(data);
                     output.appendChild(sol.render());
                     count++;
                     info.innerText = `${count} solutions ...`;

@@ -60,7 +60,7 @@ async function execWithFormData(formData: FormData, output: Element, cancelBtn: 
                 worker.terminate();
                 resolve("done");
             } else {
-                let sol = Puzzle.Solution.fromObj(data);
+                let sol = Puzzle.Solution.deserialize(data);
                 output.appendChild(sol.render());
                 count++;
                 info.innerText = `${count} solutions ...`;
