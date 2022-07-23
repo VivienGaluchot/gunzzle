@@ -51,13 +51,14 @@ async function execWithFormData(formData: FormData, output: Element, cancelBtn: 
     let worker = new Worker("worker.js", { type: "module" });
     let promise = new Promise((resolve, reject) => {
         cancelBtn.onclick = () => {
+            worker.terminate();
             resolve("canceled");
         };
         worker.onmessage = (event) => {
             let data = event.data;
             if (data == null) {
-                resolve("done");
                 worker.terminate();
+                resolve("done");
             } else {
                 let sol = Puzzle.Solution.fromObj(data);
                 output.appendChild(sol.render());

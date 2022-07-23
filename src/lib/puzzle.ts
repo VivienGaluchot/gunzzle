@@ -46,6 +46,22 @@ function matrixIncrement(matrix: number[], maxBound: number) {
     return true;
 }
 
+function* permutations(values: Array<any>): Generator<Array<any>> {
+    if (values.length == 0) {
+        yield [];
+    } else if (values.length == 1) {
+        yield values;
+    } else {
+        for (let id = 0; id < values.length; id++) {
+            let local = [...values];
+            let deleted = local.splice(id, 1);
+            for (let perms of permutations(local)) {
+                yield deleted.concat(perms);
+            }
+        }
+    }
+}
+
 
 class FragmentMatrix {
     readonly rows: number;
@@ -158,15 +174,17 @@ class Lookup {
 
         for (let pos of this.matrix.everyPos()) {
             for (let dir = Direction.Top; dir <= Direction.Left; dir++) {
-                let lkIdx = pos.row * this.matrix.cols * 4 + pos.col * 4 + dir;
-                this.array[lkIdx] = this.matrix.getFrIndex(pos, dir);
+                this.array[this.lookIndex(pos, dir)] = this.matrix.getFrIndex(pos, dir);
             }
         }
     }
 
+    lookIndex(pos: Pos, dir: Direction) {
+        return pos.row * this.matrix.cols * 4 + pos.col * 4 + dir;
+    }
+
     at(pos: Pos, dir: Direction) {
-        let lkIdx = pos.row * this.matrix.cols * 4 + pos.col * 4 + dir;
-        let frIndex = this.array[lkIdx];
+        let frIndex = this.array[this.lookIndex(pos, dir)];
         return this.matrix.array[frIndex.idx] * frIndex.sign;
     }
 }
@@ -254,14 +272,14 @@ class Solution {
                 return false;
             }
             if (this.lookup.at(pos, Direction.Bottom) ==
-                this.lookup.at(pos, Direction.Right)
-                && this.lookup.at(pos, Direction.Left) ==
+                this.lookup.at(pos, Direction.Right) &&
+                this.lookup.at(pos, Direction.Left) ==
                 this.lookup.at(pos, Direction.Top)) {
                 return false;
             }
             if (this.lookup.at(pos, Direction.Bottom) ==
-                this.lookup.at(pos, Direction.Left)
-                && this.lookup.at(pos, Direction.Right) ==
+                this.lookup.at(pos, Direction.Left) &&
+                this.lookup.at(pos, Direction.Right) ==
                 this.lookup.at(pos, Direction.Top)) {
                 return false;
             }
@@ -276,6 +294,8 @@ class Solution {
             yield null;
         }
     }
+
+    // display
 
     render(): Element {
         let frame = new Svg.SvgFrame();
@@ -310,19 +330,32 @@ class Solution {
 
 function* generate(rows: number, cols: number, maxBound: number) {
     let yieldCount = 0;
-    let totalTry = 0;
+    let timeWindowCount = 0;
+    let totalCount = 0;
+
+    let timeWindowStart = Date.now();
+
     let sol = new Solution(rows, cols, maxBound);
     for (let _ of sol.swipe()) {
-        totalTry++;
         if (sol.isUnique()) {
             yield sol;
             yieldCount++;
         }
+        totalCount++;
+        timeWindowCount++;
+
+        let timeInMs = Date.now();
+        if (timeInMs - timeWindowStart > 1000) {
+            console.log("Rate", timeWindowCount, "/ sec");
+            timeWindowCount = 0;
+            timeWindowStart += 1000;
+        }
+
         if (yieldCount >= 20) {
             break;
         }
     }
-    console.log("Total try", totalTry);
+    console.log("Total try", totalCount);
 }
 
 export { generate, Solution }
