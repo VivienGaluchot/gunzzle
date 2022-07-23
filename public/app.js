@@ -64,7 +64,8 @@ function execWithFormData(formData, output, cancelBtn) {
                 }
                 else {
                     let sol = Puzzle.Solution.deserialize(data);
-                    output.appendChild(sol.render());
+                    output.insertBefore(sol.render(), info.nextSibling);
+                    // output.appendChild(sol.render());
                     count++;
                     info.innerText = `${count} solutions ...`;
                 }

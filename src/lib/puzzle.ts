@@ -3,6 +3,13 @@
 import * as Svg from './svg.js';
 import * as Maths from './maths.js';
 
+function assert(isOk: boolean, ...message: any[]) {
+    if (!isOk) {
+        console.error("Assert failed:", ...message);
+        throw new Error("Assert failed");
+    }
+}
+
 enum Direction {
     Top = 0,
     Right,
@@ -63,10 +70,9 @@ function arrayIncrement(array: number[], maxBound: number) {
 
 function* arrayIncrementGen(array: number[], maxBound: number): Generator<null> {
     let isDone = false;
-    yield null;
     while (!isDone) {
-        isDone = arrayIncrement(array, maxBound);
         yield null;
+        isDone = arrayIncrement(array, maxBound);
     }
 }
 
@@ -86,13 +92,16 @@ function* permutations<T>(values: Array<T>): Generator<Array<T>> {
     }
 }
 
-const ROTATION_R_COUNT = 8;
+const ROTATION_R_COUNT = DIRECTION_COUNT * 2;
 
 ///      non flip | flip
 /// r: [0, 1, 2, 3, 4, 5, 6, 7]
 function rotate(dir: Direction, r: number): Direction {
+    assert(dir >= 0 && dir < DIRECTION_COUNT, "invalid direction", dir);
+    assert(r >= 0 && r < ROTATION_R_COUNT, "invalid rotation", r);
+
     let rotated = (dir + r) % DIRECTION_COUNT;
-    if (r < 4) {
+    if (r < DIRECTION_COUNT) {
         return rotated;
     } else if (rotated == Direction.Right) {
         return Direction.Left
@@ -146,6 +155,9 @@ class FragmentMatrix {
     // fragments
 
     getFrIndex(pos: Pos, dir: Direction): FragmentIndex {
+        assert(dir >= 0 && dir < DIRECTION_COUNT, "invalid direction", dir);
+        assert(pos.row >= 0 && pos.row < this.rows, "invalid row", pos);
+        assert(pos.col >= 0 && pos.col < this.cols, "invalid col", pos);
         let idx = 0;
         let sign = 1;
         if (pos.row == 0 && dir == Direction.Top) {
@@ -220,12 +232,14 @@ class Lookup {
 
     constructor(matrix: FragmentMatrix) {
         this.matrix = matrix;
-        this.array = new Array(matrix.rows * matrix.cols * DIRECTION_COUNT).fill(0);
-
+        this.array = new Array(matrix.rows * matrix.cols * DIRECTION_COUNT).fill(null);
         for (let pos of this.matrix.everyPos()) {
             for (let dir = Direction.Top; dir <= Direction.Left; dir++) {
                 this.array[this.lookIndex(pos, dir)] = this.matrix.getFrIndex(pos, dir);
             }
+        }
+        for (let el of this.array) {
+            assert(el != null, "unset array pos", this.array);
         }
     }
 
@@ -234,7 +248,7 @@ class Lookup {
         for (let pos of this.matrix.everyPos()) {
             for (let dir = Direction.Top; dir <= Direction.Left; dir++) {
                 let target = callback(pos, dir);
-                this.array[this.lookIndex(pos, dir)] = initial[this.lookIndex(target.pos, target.dir)]
+                this.array[this.lookIndex(pos, dir)] = initial[this.lookIndex(target.pos, target.dir)];
             }
         }
     }
@@ -248,7 +262,6 @@ class Lookup {
         return this.matrix.array[frIndex.idx] * frIndex.sign;
     }
 }
-
 
 class Transform {
     readonly matrix: FragmentMatrix;
@@ -269,14 +282,17 @@ class Transform {
         console.debug("Done, number of lookups", this.lookups.length);
     }
 
-    isUnique(): boolean {
-        // TODO reverse order of display
+    isUnique(data: SolutionStats): boolean {
         let count = 0;
         for (let transform of this.lookups) {
             if (this.isValid(transform)) {
                 count++;
             }
+            if (count >= this.minCount) {
+                break;
+            }
         }
+        data.swapCount = count;
         if (count < this.minCount) {
             console.debug("Valid transformation count", count);
             this.minCount = count;
@@ -313,12 +329,13 @@ class Transform {
         }
         for (let permuted of permutations(baseIndex)) {
             let rotMatrix = new Array(this.matrix.rows * this.matrix.cols).fill(0);
-            for (let _ of arrayIncrementGen(rotMatrix, ROTATION_R_COUNT - 1)) {
+            for (let _ of arrayIncrementGen(rotMatrix, ROTATION_R_COUNT)) {
                 yield (pos: Pos, dir: Direction) => {
-                    let index = permuted[pos.row * this.matrix.cols + pos.col];
+                    let posIndex = pos.row * this.matrix.cols + pos.col;
+                    let index = permuted[posIndex];
                     let col = index % this.matrix.cols;
                     let row = (index - col) / this.matrix.cols;
-                    let rot = rotMatrix[pos.row * this.matrix.cols + pos.col];
+                    let rot = rotMatrix[posIndex];
                     let oDir = rotate(dir, rot);
                     return {
                         pos: { row, col }, dir: oDir
@@ -330,17 +347,23 @@ class Transform {
 }
 
 
+interface SolutionStats {
+    swapCount: number
+}
+
 class WorkerSolution {
     readonly maxBound: number;
     readonly matrix: FragmentMatrix;
     readonly lookup: Lookup;
     readonly transform: Transform;
+    readonly stats: SolutionStats;
 
     constructor(rows: number, cols: number, maxBound: number) {
         this.maxBound = maxBound;
         this.matrix = new FragmentMatrix(rows, cols, -1 * maxBound);
         this.lookup = new Lookup(this.matrix);
         this.transform = new Transform(this.matrix);
+        this.stats = { swapCount: 0 };
     }
 
     serialize() {
@@ -348,58 +371,64 @@ class WorkerSolution {
             rows: this.matrix.rows,
             cols: this.matrix.cols,
             array: this.matrix.array,
-            maxBound: this.maxBound
+            maxBound: this.maxBound,
+            stats: this.stats,
         };
     }
 
     // puzzle logic
 
     isUnique(): boolean {
-        // local validation heuristic
-        for (let pos of this.matrix.everyPos()) {
-            if (this.lookup.at(pos, Direction.Top) ==
-                this.lookup.at(pos, Direction.Bottom)) {
-                return false;
-            }
-            if (this.lookup.at(pos, Direction.Left) ==
-                this.lookup.at(pos, Direction.Right)) {
-                return false;
-            }
-            if (this.lookup.at(pos, Direction.Bottom) ==
-                this.lookup.at(pos, Direction.Right) &&
-                this.lookup.at(pos, Direction.Left) ==
-                this.lookup.at(pos, Direction.Top)) {
-                return false;
-            }
-            if (this.lookup.at(pos, Direction.Bottom) ==
-                this.lookup.at(pos, Direction.Left) &&
-                this.lookup.at(pos, Direction.Right) ==
-                this.lookup.at(pos, Direction.Top)) {
-                return false;
-            }
-        }
-        // pair validation heuristic
-        for (let { first, second } of this.matrix.hPairs) {
-            if (this.lookup.at(first, Direction.Top) ==
-                this.lookup.at(second, Direction.Top)) {
-                return false;
-            }
-            if (this.lookup.at(first, Direction.Bottom) ==
-                this.lookup.at(second, Direction.Bottom)) {
-                return false;
-            }
-        }
-        for (let { first, second } of this.matrix.vPairs) {
-            if (this.lookup.at(first, Direction.Right) ==
-                this.lookup.at(second, Direction.Right)) {
-                return false;
-            }
-            if (this.lookup.at(first, Direction.Left) ==
-                this.lookup.at(second, Direction.Left)) {
-                return false;
-            }
-        }
-        return this.transform.isUnique();
+        // Heuristics will reduce the number of possibility to find
+        // a perfect unique solution faster.
+        // May skip some good but not perfect solutions.
+
+        // // local validation heuristic
+        // for (let pos of this.matrix.everyPos()) {
+        //     if (this.lookup.at(pos, Direction.Top) ==
+        //         this.lookup.at(pos, Direction.Bottom)) {
+        //         return false;
+        //     }
+        //     if (this.lookup.at(pos, Direction.Left) ==
+        //         this.lookup.at(pos, Direction.Right)) {
+        //         return false;
+        //     }
+        //     if (this.lookup.at(pos, Direction.Bottom) ==
+        //         this.lookup.at(pos, Direction.Right) &&
+        //         this.lookup.at(pos, Direction.Left) ==
+        //         this.lookup.at(pos, Direction.Top)) {
+        //         return false;
+        //     }
+        //     if (this.lookup.at(pos, Direction.Bottom) ==
+        //         this.lookup.at(pos, Direction.Left) &&
+        //         this.lookup.at(pos, Direction.Right) ==
+        //         this.lookup.at(pos, Direction.Top)) {
+        //         return false;
+        //     }
+        // }
+        // // pair validation heuristic
+        // for (let { first, second } of this.matrix.hPairs) {
+        //     if (this.lookup.at(first, Direction.Top) ==
+        //         this.lookup.at(second, Direction.Top)) {
+        //         return false;
+        //     }
+        //     if (this.lookup.at(first, Direction.Bottom) ==
+        //         this.lookup.at(second, Direction.Bottom)) {
+        //         return false;
+        //     }
+        // }
+        // for (let { first, second } of this.matrix.vPairs) {
+        //     if (this.lookup.at(first, Direction.Right) ==
+        //         this.lookup.at(second, Direction.Right)) {
+        //         return false;
+        //     }
+        //     if (this.lookup.at(first, Direction.Left) ==
+        //         this.lookup.at(second, Direction.Left)) {
+        //         return false;
+        //     }
+        // }
+
+        return this.transform.isUnique(this.stats);
     }
 
     // brute force
@@ -413,18 +442,21 @@ class WorkerSolution {
 
 
 class Solution {
-    readonly matrix: FragmentMatrix;
+    matrix: FragmentMatrix;
+    stats: SolutionStats;
 
     static deserialize(obj: any) {
         let instance = new Solution(obj.rows, obj.cols, obj.maxBound);
         for (let id = 0; id < instance.matrix.array.length; id++) {
             instance.matrix.array[id] = obj.array[id];
         }
+        instance.stats = obj.stats;
         return instance;
     }
 
     constructor(rows: number, cols: number, maxBound: number) {
         this.matrix = new FragmentMatrix(rows, cols, -1 * maxBound);
+        this.stats = { swapCount: 0 };
     }
 
     // display
@@ -435,7 +467,7 @@ class Solution {
         let group = new Svg.Group();
         frame.appendChild(group);
 
-        frame.safeView = new Maths.Rect(new Maths.Vector(0, 0), new Maths.Vector(this.matrix.cols * 10, this.matrix.rows * 10));
+        frame.safeView = new Maths.Rect(new Maths.Vector(-2, 0), new Maths.Vector(2 + this.matrix.cols * 10, this.matrix.rows * 10));
         for (let pos of this.matrix.everyPos()) {
             let piece = new Svg.Group();
             piece.domEl.classList.add("piece");
@@ -454,8 +486,11 @@ class Solution {
             }
 
             piece.translation = new Maths.Vector(pos.col * 10, pos.row * 10);
+
             group.appendChild(piece);
         }
+
+        group.appendChild(new Svg.Text(this.stats.swapCount.toString(), 0, 0, { className: "swap-count-label" }));
         return frame.domEl;
     }
 }

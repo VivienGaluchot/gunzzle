@@ -203,7 +203,7 @@ a {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
     grid-auto-rows: min-content;
-    grid-gap: 3rem;
+    grid-gap: 2rem;
     padding: 2rem;
 }
 
@@ -216,6 +216,13 @@ a {
     min-height: 15rem;
     width: 100%;
     height: 100%;
+}
+
+.puzzle-solution .swap-count-label {
+    fill: #FFFD;
+    font-size: 1.5px;
+    text-anchor: start;
+    font-weight: 400;
 }
 
 .puzzle-solution .piece .fragment-label {
