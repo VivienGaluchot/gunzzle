@@ -218,11 +218,12 @@ a {
     height: 100%;
 }
 
-.puzzle-solution .swap-count-label {
+.puzzle-solution .stat-label {
     fill: #FFFD;
-    font-size: 1.5px;
-    text-anchor: start;
+    font-size: 1.2px;
+    text-anchor: middle;
     font-weight: 400;
+    font-style: italic;
 }
 
 .puzzle-solution .piece .fragment-label {

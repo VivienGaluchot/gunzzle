@@ -51,30 +51,6 @@ function arrayIncrement(array, maxBound) {
     // done
     return true;
 }
-function* arrayIncrementGen(array, maxBound) {
-    let isDone = false;
-    while (!isDone) {
-        yield null;
-        isDone = arrayIncrement(array, maxBound);
-    }
-}
-function* permutations(values) {
-    if (values.length == 0) {
-        yield [];
-    }
-    else if (values.length == 1) {
-        yield values;
-    }
-    else {
-        for (let id = 0; id < values.length; id++) {
-            let local = [...values];
-            let deleted = local.splice(id, 1);
-            for (let perms of permutations(local)) {
-                yield deleted.concat(perms);
-            }
-        }
-    }
-}
 const ROTATION_R_COUNT = DIRECTION_COUNT * 2;
 ///      non flip | flip
 /// r: [0, 1, 2, 3, 4, 5, 6, 7]
@@ -184,102 +160,119 @@ class FragmentMatrix {
 class Lookup {
     constructor(matrix) {
         this.matrix = matrix;
-        this.array = new Array(matrix.rows * matrix.cols * DIRECTION_COUNT).fill(null);
+        this.origin = new Array(matrix.rows * matrix.cols * DIRECTION_COUNT).fill(null);
         for (let pos of this.matrix.everyPos()) {
             for (let dir = Direction.Top; dir <= Direction.Left; dir++) {
-                this.array[this.lookIndex(pos, dir)] = this.matrix.getFrIndex(pos, dir);
+                this.origin[this.lookIndex(pos, dir)] = this.matrix.getFrIndex(pos, dir);
             }
         }
-        for (let el of this.array) {
-            assert(el != null, "unset array pos", this.array);
+        for (let el of this.origin) {
+            assert(el != null, "unset array pos", this.origin);
         }
+        this.active = [...this.origin];
     }
-    applyTransform(callback) {
-        let initial = [...this.array];
-        for (let pos of this.matrix.everyPos()) {
-            for (let dir = Direction.Top; dir <= Direction.Left; dir++) {
-                let target = callback(pos, dir);
-                this.array[this.lookIndex(pos, dir)] = initial[this.lookIndex(target.pos, target.dir)];
-            }
+    setTransform(from, to, r) {
+        for (let dir = Direction.Top; dir <= Direction.Left; dir++) {
+            this.active[this.lookIndex(to, rotate(dir, r))] = this.origin[this.lookIndex(from, dir)];
         }
     }
     lookIndex(pos, dir) {
         return pos.row * this.matrix.cols * 4 + pos.col * 4 + dir;
     }
     at(pos, dir) {
-        let frIndex = this.array[this.lookIndex(pos, dir)];
+        let frIndex = this.active[this.lookIndex(pos, dir)];
         return this.matrix.array[frIndex.idx] * frIndex.sign;
     }
 }
 class Transform {
     constructor(matrix) {
-        this.minCount = 1000;
+        this.maxCount = 10000000;
+        this.minAlmostCount = 0;
         this.matrix = matrix;
-        this.lookups = [];
-        console.debug("Build transforms");
-        for (let tr of this.swipeTransforms()) {
-            let lookup = new Lookup(matrix);
-            lookup.applyTransform(tr);
-            this.lookups.push(lookup);
-        }
-        console.debug("Done, number of lookups", this.lookups.length);
+        this.lookup = new Lookup(matrix);
     }
-    isUnique(data) {
-        let count = 0;
-        for (let transform of this.lookups) {
-            if (this.isValid(transform)) {
-                count++;
+    isUnique() {
+        let pieces = [];
+        for (let pos of this.matrix.everyPos()) {
+            pieces.push(pos);
+        }
+        let input = {
+            maxValidCount: this.maxCount,
+        };
+        let output = {
+            aborted: false,
+            validCount: 0,
+            almostValidCount: 0
+        };
+        this.recConstruct({ row: 0, col: 0 }, pieces, input, output);
+        if (!output.aborted) {
+            if (output.validCount < this.maxCount) {
+                console.debug("New max valid count", output);
+                this.maxCount = output.validCount;
+                this.minAlmostCount = 0;
             }
-            if (count >= this.minCount) {
-                break;
+            if (output.almostValidCount > this.minAlmostCount) {
+                console.debug("New min almost valid count", output);
+                this.minAlmostCount = output.almostValidCount;
+            }
+            else {
+                // drop
+                output.aborted = true;
             }
         }
-        data.swapCount = count;
-        if (count < this.minCount) {
-            console.debug("Valid transformation count", count);
-            this.minCount = count;
-            return true;
-        }
-        return false;
+        return output;
     }
     // internal
-    isValid(transform) {
-        // validation
-        for (let { first, second } of this.matrix.hPairs) {
-            if (transform.at(first, Direction.Right) !=
-                -1 * transform.at(second, Direction.Left)) {
-                return false;
-            }
+    // fixedCount: [0; rows * cols] number of pieces with defined
+    // remaining: set of pieces not placed yet
+    recConstruct(pos, remaining, input, output) {
+        if (remaining.length == 0) {
+            output.validCount++;
         }
-        for (let { first, second } of this.matrix.vPairs) {
-            if (transform.at(first, Direction.Bottom) !=
-                -1 * transform.at(second, Direction.Top)) {
-                return false;
+        else {
+            let left = null;
+            if (pos.col > 0) {
+                left = -1 * this.lookup.at({ row: pos.row, col: pos.col - 1 }, Direction.Right);
             }
-        }
-        return true;
-    }
-    *swipeTransforms() {
-        let baseIndex = [];
-        for (let row = 0; row < this.matrix.rows; row++) {
-            for (let col = 0; col < this.matrix.cols; col++) {
-                baseIndex.push(row * this.matrix.cols + col);
+            let top = null;
+            if (pos.row > 0) {
+                top = -1 * this.lookup.at({ row: pos.row - 1, col: pos.col }, Direction.Bottom);
             }
-        }
-        for (let permuted of permutations(baseIndex)) {
-            let rotMatrix = new Array(this.matrix.rows * this.matrix.cols).fill(0);
-            for (let _ of arrayIncrementGen(rotMatrix, ROTATION_R_COUNT)) {
-                yield (pos, dir) => {
-                    let posIndex = pos.row * this.matrix.cols + pos.col;
-                    let index = permuted[posIndex];
-                    let col = index % this.matrix.cols;
-                    let row = (index - col) / this.matrix.cols;
-                    let rot = rotMatrix[posIndex];
-                    let oDir = rotate(dir, rot);
-                    return {
-                        pos: { row, col }, dir: oDir
-                    };
-                };
+            // add one piece amongst remaining
+            for (let idx = 0; idx < remaining.length; idx++) {
+                let subPieces = [...remaining];
+                let selected = subPieces.splice(idx, 1);
+                // rotate it
+                for (let r = 0; r < ROTATION_R_COUNT; r++) {
+                    this.lookup.setTransform(selected[0], pos, r);
+                    // check new piece compatibility
+                    if (left != null && left != this.lookup.at(pos, Direction.Left)) {
+                        // not compatible
+                        if (subPieces.length == 0) {
+                            output.almostValidCount++;
+                        }
+                    }
+                    else if (top != null && top != this.lookup.at(pos, Direction.Top)) {
+                        // not compatible
+                        if (subPieces.length == 0) {
+                            output.almostValidCount++;
+                        }
+                    }
+                    else {
+                        // continue with the next piece
+                        let subPos = { ...pos };
+                        subPos.col++;
+                        if (subPos.col == this.matrix.cols) {
+                            subPos.col = 0;
+                            subPos.row++;
+                        }
+                        this.recConstruct(subPos, subPieces, input, output);
+                        if (output.validCount > input.maxValidCount) {
+                            output.aborted = true;
+                            return;
+                        }
+                    }
+                }
             }
         }
     }
@@ -290,14 +283,12 @@ class WorkerSolution {
         this.matrix = new FragmentMatrix(rows, cols, -1 * maxBound);
         this.lookup = new Lookup(this.matrix);
         this.transform = new Transform(this.matrix);
-        this.stats = { swapCount: 0 };
     }
     serialize() {
         return {
             rows: this.matrix.rows,
             cols: this.matrix.cols,
             array: this.matrix.array,
-            maxBound: this.maxBound,
             stats: this.stats,
         };
     }
@@ -350,7 +341,8 @@ class WorkerSolution {
         //         return false;
         //     }
         // }
-        return this.transform.isUnique(this.stats);
+        this.stats = this.transform.isUnique();
+        return !this.stats.aborted;
     }
     // brute force
     *swipe() {
@@ -360,16 +352,15 @@ class WorkerSolution {
     }
 }
 class Solution {
-    constructor(rows, cols, maxBound) {
-        this.matrix = new FragmentMatrix(rows, cols, -1 * maxBound);
-        this.stats = { swapCount: 0 };
+    constructor(rows, cols, stats) {
+        this.matrix = new FragmentMatrix(rows, cols, 0);
+        this.stats = stats;
     }
     static deserialize(obj) {
-        let instance = new Solution(obj.rows, obj.cols, obj.maxBound);
+        let instance = new Solution(obj.rows, obj.cols, obj.stats);
         for (let id = 0; id < instance.matrix.array.length; id++) {
             instance.matrix.array[id] = obj.array[id];
         }
-        instance.stats = obj.stats;
         return instance;
     }
     // display
@@ -398,7 +389,8 @@ class Solution {
             piece.translation = new Maths.Vector(pos.col * 10, pos.row * 10);
             group.appendChild(piece);
         }
-        group.appendChild(new Svg.Text(this.stats.swapCount.toString(), 0, 0, { className: "swap-count-label" }));
+        let almostRate = this.stats.almostValidCount / this.stats.validCount;
+        group.appendChild(new Svg.Text(`${this.stats.validCount} | x${almostRate.toFixed(1)}`, this.matrix.cols * 5, 0, { className: "stat-label" }));
         return frame.domEl;
     }
 }
@@ -421,7 +413,7 @@ function* generate(rows, cols, maxBound) {
             timeWindowCount = 0;
             timeWindowStart += 1000;
         }
-        if (yieldCount >= 20) {
+        if (yieldCount >= 100) {
             break;
         }
     }
