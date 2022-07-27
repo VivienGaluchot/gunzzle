@@ -75,6 +75,17 @@ input {
     flex-grow: 0;
 }
 
+.progress-bar {
+    margin: 1rem 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: .5rem;
+}
+
+.progress-bar>progress {
+    flex-grow: 1;
+}
+
 
 /* style */
 
@@ -205,6 +216,10 @@ a {
     grid-auto-rows: min-content;
     grid-gap: 2rem;
     padding: 2rem;
+}
+
+#gen-progress {
+    filter: brightness(0.5);
 }
 
 .gen-output .info {

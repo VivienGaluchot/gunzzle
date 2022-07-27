@@ -41,7 +41,7 @@ function matrixIncrement(matrix: number[], maxBound: number) {
         } else {
             matrix[idx]++;
         }
-        if (matrix[idx] < maxBound) {
+        if (matrix[idx] <= maxBound) {
             // not an overflow
             return false;
         } else {
@@ -53,19 +53,8 @@ function matrixIncrement(matrix: number[], maxBound: number) {
     return true;
 }
 
-function arrayIncrement(array: number[], maxBound: number) {
-    for (let idx = 0; idx < array.length; idx++) {
-        array[idx]++;
-        if (array[idx] < maxBound) {
-            // not an overflow
-            return false;
-        } else {
-            // overflow
-            array[idx] = 0;
-        }
-    }
-    // done
-    return true;
+function matrixIncrementLength(matrix: number[], maxBound: number) {
+    return Math.pow((maxBound * 2), (matrix.length - 1));
 }
 
 const ROTATION_R_COUNT = DIRECTION_COUNT * 2;
@@ -172,6 +161,10 @@ class FragmentMatrix {
 
     // brute force
 
+    swipeLength(maxBound: number): number {
+        return 1 + matrixIncrementLength(this.array, maxBound);
+    }
+
     * swipe(maxBound: number): Generator<null> {
         let isDone = false;
         yield null;
@@ -236,22 +229,26 @@ class Lookup {
     }
 }
 
+interface SolutionStats {
+    validCount: number;
+    almostValidCount: number;
+}
+
 interface ConstructInputInfo {
     maxValidCount: number;
 }
 
-interface ConstructOutputInfo {
+interface ConstructOutputInfo extends SolutionStats {
     aborted: boolean;
-    validCount: number;
-    almostValidCount: number;
 }
 
 class Transform {
     readonly matrix: FragmentMatrix;
     readonly lookup: Lookup;
 
-    private maxCount = 10000000;
-    private minAlmostCount = 0;
+    // TODO conf from website
+    private maxCount = 1000;
+    private minAlmostCount = -1;
 
     constructor(matrix: FragmentMatrix) {
         this.matrix = matrix;
@@ -275,6 +272,7 @@ class Transform {
         this.recConstruct({ row: 0, col: 0 }, pieces, input, output);
 
         if (!output.aborted) {
+            assert(output.validCount % 8 == 0, "unexpected output", output);
             if (output.validCount < this.maxCount) {
                 console.debug("New max valid count", output);
                 this.maxCount = output.validCount;
@@ -295,9 +293,12 @@ class Transform {
 
     // fixedCount: [0; rows * cols] number of pieces with defined
     // remaining: set of pieces not placed yet
-    private recConstruct(pos: Pos, remaining: Pos[], input: ConstructInputInfo, output: ConstructOutputInfo) {
+    // return true when at least one solution have been found
+    private recConstruct(pos: Pos, remaining: Pos[], input: ConstructInputInfo, output: ConstructOutputInfo): boolean {
         if (remaining.length == 0) {
             output.validCount++;
+            return true;
+
         } else {
             let left = null;
             if (pos.col > 0) {
@@ -307,6 +308,8 @@ class Transform {
             if (pos.row > 0) {
                 top = -1 * this.lookup.at({ row: pos.row - 1, col: pos.col }, Direction.Bottom);
             }
+
+            let hasFound = false;
 
             // add one piece amongst remaining
             for (let idx = 0; idx < remaining.length; idx++) {
@@ -320,14 +323,8 @@ class Transform {
                     // check new piece compatibility
                     if (left != null && left != this.lookup.at(pos, Direction.Left)) {
                         // not compatible
-                        if (subPieces.length == 0) {
-                            output.almostValidCount++;
-                        }
                     } else if (top != null && top != this.lookup.at(pos, Direction.Top)) {
                         // not compatible
-                        if (subPieces.length == 0) {
-                            output.almostValidCount++;
-                        }
                     } else {
                         // continue with the next piece
                         let subPos = { ...pos };
@@ -336,34 +333,51 @@ class Transform {
                             subPos.col = 0;
                             subPos.row++;
                         }
-                        this.recConstruct(subPos, subPieces, input, output);
+                        hasFound = this.recConstruct(subPos, subPieces, input, output) || hasFound;
                         if (output.validCount > input.maxValidCount) {
                             output.aborted = true;
-                            return;
+                            return false;
                         }
                     }
                 }
             }
+
+            // no valid piece found for the last one
+            if (!hasFound && remaining.length == 1) {
+                output.almostValidCount++;
+            }
+
+            return hasFound;
         }
     }
 }
 
+interface SerializedSolution {
+    rows: number,
+    cols: number,
+    array: number[],
+    stats: SolutionStats,
+}
 
 class WorkerSolution {
     readonly maxBound: number;
     readonly matrix: FragmentMatrix;
     readonly lookup: Lookup;
     readonly transform: Transform;
-    stats?: ConstructOutputInfo;
+    stats: SolutionStats;
 
     constructor(rows: number, cols: number, maxBound: number) {
         this.maxBound = maxBound;
         this.matrix = new FragmentMatrix(rows, cols, -1 * maxBound);
         this.lookup = new Lookup(this.matrix);
         this.transform = new Transform(this.matrix);
+        this.stats = {
+            validCount: 0,
+            almostValidCount: 0
+        };
     }
 
-    serialize() {
+    serialize(): SerializedSolution {
         return {
             rows: this.matrix.rows,
             cols: this.matrix.cols,
@@ -378,57 +392,63 @@ class WorkerSolution {
         // Heuristics will reduce the number of possibility to find
         // a perfect unique solution faster.
         // May skip some good but not perfect solutions.
+        // TODO enable on demand
 
-        // // local validation heuristic
-        // for (let pos of this.matrix.everyPos()) {
-        //     if (this.lookup.at(pos, Direction.Top) ==
-        //         this.lookup.at(pos, Direction.Bottom)) {
-        //         return false;
-        //     }
-        //     if (this.lookup.at(pos, Direction.Left) ==
-        //         this.lookup.at(pos, Direction.Right)) {
-        //         return false;
-        //     }
-        //     if (this.lookup.at(pos, Direction.Bottom) ==
-        //         this.lookup.at(pos, Direction.Right) &&
-        //         this.lookup.at(pos, Direction.Left) ==
-        //         this.lookup.at(pos, Direction.Top)) {
-        //         return false;
-        //     }
-        //     if (this.lookup.at(pos, Direction.Bottom) ==
-        //         this.lookup.at(pos, Direction.Left) &&
-        //         this.lookup.at(pos, Direction.Right) ==
-        //         this.lookup.at(pos, Direction.Top)) {
-        //         return false;
-        //     }
-        // }
-        // // pair validation heuristic
-        // for (let { first, second } of this.matrix.hPairs) {
-        //     if (this.lookup.at(first, Direction.Top) ==
-        //         this.lookup.at(second, Direction.Top)) {
-        //         return false;
-        //     }
-        //     if (this.lookup.at(first, Direction.Bottom) ==
-        //         this.lookup.at(second, Direction.Bottom)) {
-        //         return false;
-        //     }
-        // }
-        // for (let { first, second } of this.matrix.vPairs) {
-        //     if (this.lookup.at(first, Direction.Right) ==
-        //         this.lookup.at(second, Direction.Right)) {
-        //         return false;
-        //     }
-        //     if (this.lookup.at(first, Direction.Left) ==
-        //         this.lookup.at(second, Direction.Left)) {
-        //         return false;
-        //     }
-        // }
+        // local validation heuristic
+        for (let pos of this.matrix.everyPos()) {
+            if (this.lookup.at(pos, Direction.Top) ==
+                this.lookup.at(pos, Direction.Bottom)) {
+                return false;
+            }
+            if (this.lookup.at(pos, Direction.Left) ==
+                this.lookup.at(pos, Direction.Right)) {
+                return false;
+            }
+            if (this.lookup.at(pos, Direction.Bottom) ==
+                this.lookup.at(pos, Direction.Right) &&
+                this.lookup.at(pos, Direction.Left) ==
+                this.lookup.at(pos, Direction.Top)) {
+                return false;
+            }
+            if (this.lookup.at(pos, Direction.Bottom) ==
+                this.lookup.at(pos, Direction.Left) &&
+                this.lookup.at(pos, Direction.Right) ==
+                this.lookup.at(pos, Direction.Top)) {
+                return false;
+            }
+        }
+        // pair validation heuristic
+        for (let { first, second } of this.matrix.hPairs) {
+            if (this.lookup.at(first, Direction.Top) ==
+                this.lookup.at(second, Direction.Top)) {
+                return false;
+            }
+            if (this.lookup.at(first, Direction.Bottom) ==
+                this.lookup.at(second, Direction.Bottom)) {
+                return false;
+            }
+        }
+        for (let { first, second } of this.matrix.vPairs) {
+            if (this.lookup.at(first, Direction.Right) ==
+                this.lookup.at(second, Direction.Right)) {
+                return false;
+            }
+            if (this.lookup.at(first, Direction.Left) ==
+                this.lookup.at(second, Direction.Left)) {
+                return false;
+            }
+        }
 
-        this.stats = this.transform.isUnique();
-        return !this.stats.aborted;
+        let out = this.transform.isUnique();
+        this.stats = out;
+        return !out.aborted;
     }
 
     // brute force
+
+    swipeLength(): number {
+        return this.matrix.swipeLength(this.maxBound);
+    }
 
     * swipe(): Generator<null> {
         for (let _ of this.matrix.swipe(this.maxBound)) {
@@ -440,9 +460,9 @@ class WorkerSolution {
 
 class Solution {
     matrix: FragmentMatrix;
-    stats: ConstructOutputInfo;
+    stats: SolutionStats;
 
-    static deserialize(obj: any) {
+    static deserialize(obj: SerializedSolution) {
         let instance = new Solution(obj.rows, obj.cols, obj.stats);
         for (let id = 0; id < instance.matrix.array.length; id++) {
             instance.matrix.array[id] = obj.array[id];
@@ -450,7 +470,7 @@ class Solution {
         return instance;
     }
 
-    constructor(rows: number, cols: number, stats: ConstructOutputInfo) {
+    constructor(rows: number, cols: number, stats: SolutionStats) {
         this.matrix = new FragmentMatrix(rows, cols, 0);
         this.stats = stats;
     }
@@ -486,40 +506,53 @@ class Solution {
             group.appendChild(piece);
         }
 
+        let validCount = this.stats.validCount / 8;
         let almostRate = this.stats.almostValidCount / this.stats.validCount;
-        group.appendChild(new Svg.Text(`${this.stats.validCount} | x${almostRate.toFixed(1)}`, this.matrix.cols * 5, 0, { className: "stat-label" }));
+        group.appendChild(new Svg.Text(`${validCount} | x${almostRate.toFixed(1)}`, this.matrix.cols * 5, 0, { className: "stat-label" }));
         return frame.domEl;
     }
 }
 
-function* generate(rows: number, cols: number, maxBound: number) {
+interface GenOutput {
+    sol?: SerializedSolution,
+    rate?: number,
+    progress?: number,
+}
+
+function* generate(rows: number, cols: number, maxBound: number): Generator<GenOutput> {
     let yieldCount = 0;
     let timeWindowCount = 0;
     let totalCount = 0;
 
     let timeWindowStart = Date.now();
+    let swipeIndex = 0;
 
     let sol = new WorkerSolution(rows, cols, maxBound);
+    const swipeLength = sol.swipeLength()
+
     for (let _ of sol.swipe()) {
         if (sol.isUnique()) {
-            yield sol.serialize();
+            yield { sol: sol.serialize() };
             yieldCount++;
         }
         totalCount++;
         timeWindowCount++;
 
         let timeInMs = Date.now();
-        if (timeInMs - timeWindowStart > 1000) {
-            console.log("Rate", timeWindowCount, "/ sec");
+        if (timeInMs - timeWindowStart > 500) {
+            yield {
+                rate: timeWindowCount * (1000 / 500),
+                progress: swipeIndex / swipeLength
+            };
             timeWindowCount = 0;
-            timeWindowStart += 1000;
+            timeWindowStart = timeInMs;
         }
 
-        if (yieldCount >= 100) {
-            break;
-        }
+        swipeIndex++;
     }
+
     console.log("Total try", totalCount);
+    assert(totalCount == swipeLength, "Wrong swipe length", swipeLength);
 }
 
-export { generate, Solution }
+export { generate, Solution, GenOutput }

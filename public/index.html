@@ -27,6 +27,10 @@
                 <label>Fragment count</label>
                 <input type="number" name="fragment_count" value="2" min="1" max="100" />
             </form>
+            <div class="progress-bar">
+                <span id="gen-progress-label">-</span>
+                <progress id="gen-progress" max="100" value="0"></progress>
+            </div>
             <div class="btn-bar">
                 <button id="btn-run">Run</button>
                 <button id="btn-cancel" class="grey" disabled>Cancel</button>

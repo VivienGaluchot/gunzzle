@@ -19,7 +19,16 @@ function checkBtn(element: HTMLElement | null): HTMLButtonElement {
     return element;
 }
 
-async function execWithFormData(formData: FormData, output: Element, cancelBtn: HTMLButtonElement) {
+async function execWithFormData(formData: FormData, output: Element) {
+    let cancelBtn = checkBtn(document.getElementById("btn-cancel"));
+    let progressBar = checkNonNull(document.getElementById("gen-progress"));
+    let progressLabel = checkNonNull(document.getElementById("gen-progress-label"));
+
+    function setProgressPercent(progress: number) {
+        progressBar.setAttribute("value", progress.toString());
+        progressLabel.innerText = `${progress.toFixed(1)} %`;
+    }
+
     function getIntProp(name: string): number {
         if (!formData.has(name)) {
             throw new Error(`form property ${name} missing`);
@@ -47,6 +56,7 @@ async function execWithFormData(formData: FormData, output: Element, cancelBtn: 
     info.classList.add("info");
     output.appendChild(info);
     info.innerText = `running ...`;
+    setProgressPercent(0);
 
     let worker = new Worker("worker.js", { type: "module" });
     let promise = new Promise((resolve, reject) => {
@@ -55,16 +65,27 @@ async function execWithFormData(formData: FormData, output: Element, cancelBtn: 
             resolve("canceled");
         };
         worker.onmessage = (event) => {
-            let data = event.data;
+            let data: Puzzle.GenOutput = event.data;
             if (data == null) {
+                setProgressPercent(100);
                 worker.terminate();
                 resolve("done");
             } else {
-                let sol = Puzzle.Solution.deserialize(data);
-                output.insertBefore(sol.render(), info.nextSibling);
-                // output.appendChild(sol.render());
-                count++;
-                info.innerText = `${count} solutions ...`;
+                if (data.sol) {
+                    let sol = Puzzle.Solution.deserialize(data.sol);
+                    output.insertBefore(sol.render(), info.nextSibling);
+                    count++;
+                    info.innerText = `${count} solutions ...`;
+                    if (count > 100) {
+                        output.lastChild?.remove();
+                    }
+                }
+                if (data.progress) {
+                    setProgressPercent(data.progress * 100);
+                }
+                if (data.rate) {
+                    console.log("Rate", data.rate, "/ sec");
+                }
             }
         };
         worker.onerror = (event) => {
@@ -108,8 +129,7 @@ async function formSubmit(el: Element, runBtn: HTMLButtonElement) {
                 }
             }
         }
-        let cancel = checkBtn(document.getElementById("btn-cancel"));
-        await execWithFormData(data, output, cancel);
+        await execWithFormData(data, output);
         console.info("done");
     } catch (error) {
         console.error("execution failed", error);

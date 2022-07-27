@@ -24,7 +24,7 @@ function matrixIncrement(matrix, maxBound) {
         else {
             matrix[idx]++;
         }
-        if (matrix[idx] < maxBound) {
+        if (matrix[idx] <= maxBound) {
             // not an overflow
             return false;
         }
@@ -36,20 +36,8 @@ function matrixIncrement(matrix, maxBound) {
     // done
     return true;
 }
-function arrayIncrement(array, maxBound) {
-    for (let idx = 0; idx < array.length; idx++) {
-        array[idx]++;
-        if (array[idx] < maxBound) {
-            // not an overflow
-            return false;
-        }
-        else {
-            // overflow
-            array[idx] = 0;
-        }
-    }
-    // done
-    return true;
+function matrixIncrementLength(matrix, maxBound) {
+    return Math.pow((maxBound * 2), (matrix.length - 1));
 }
 const ROTATION_R_COUNT = DIRECTION_COUNT * 2;
 ///      non flip | flip
@@ -133,6 +121,9 @@ class FragmentMatrix {
         }
     }
     // brute force
+    swipeLength(maxBound) {
+        return 1 + matrixIncrementLength(this.array, maxBound);
+    }
     *swipe(maxBound) {
         let isDone = false;
         yield null;
@@ -186,8 +177,9 @@ class Lookup {
 }
 class Transform {
     constructor(matrix) {
-        this.maxCount = 10000000;
-        this.minAlmostCount = 0;
+        // TODO conf from website
+        this.maxCount = 1000;
+        this.minAlmostCount = -1;
         this.matrix = matrix;
         this.lookup = new Lookup(matrix);
     }
@@ -206,6 +198,7 @@ class Transform {
         };
         this.recConstruct({ row: 0, col: 0 }, pieces, input, output);
         if (!output.aborted) {
+            assert(output.validCount % 8 == 0, "unexpected output", output);
             if (output.validCount < this.maxCount) {
                 console.debug("New max valid count", output);
                 this.maxCount = output.validCount;
@@ -225,9 +218,11 @@ class Transform {
     // internal
     // fixedCount: [0; rows * cols] number of pieces with defined
     // remaining: set of pieces not placed yet
+    // return true when at least one solution have been found
     recConstruct(pos, remaining, input, output) {
         if (remaining.length == 0) {
             output.validCount++;
+            return true;
         }
         else {
             let left = null;
@@ -238,6 +233,7 @@ class Transform {
             if (pos.row > 0) {
                 top = -1 * this.lookup.at({ row: pos.row - 1, col: pos.col }, Direction.Bottom);
             }
+            let hasFound = false;
             // add one piece amongst remaining
             for (let idx = 0; idx < remaining.length; idx++) {
                 let subPieces = [...remaining];
@@ -248,15 +244,9 @@ class Transform {
                     // check new piece compatibility
                     if (left != null && left != this.lookup.at(pos, Direction.Left)) {
                         // not compatible
-                        if (subPieces.length == 0) {
-                            output.almostValidCount++;
-                        }
                     }
                     else if (top != null && top != this.lookup.at(pos, Direction.Top)) {
                         // not compatible
-                        if (subPieces.length == 0) {
-                            output.almostValidCount++;
-                        }
                     }
                     else {
                         // continue with the next piece
@@ -266,14 +256,19 @@ class Transform {
                             subPos.col = 0;
                             subPos.row++;
                         }
-                        this.recConstruct(subPos, subPieces, input, output);
+                        hasFound = this.recConstruct(subPos, subPieces, input, output) || hasFound;
                         if (output.validCount > input.maxValidCount) {
                             output.aborted = true;
-                            return;
+                            return false;
                         }
                     }
                 }
             }
+            // no valid piece found for the last one
+            if (!hasFound && remaining.length == 1) {
+                output.almostValidCount++;
+            }
+            return hasFound;
         }
     }
 }
@@ -283,6 +278,10 @@ class WorkerSolution {
         this.matrix = new FragmentMatrix(rows, cols, -1 * maxBound);
         this.lookup = new Lookup(this.matrix);
         this.transform = new Transform(this.matrix);
+        this.stats = {
+            validCount: 0,
+            almostValidCount: 0
+        };
     }
     serialize() {
         return {
@@ -297,54 +296,59 @@ class WorkerSolution {
         // Heuristics will reduce the number of possibility to find
         // a perfect unique solution faster.
         // May skip some good but not perfect solutions.
-        // // local validation heuristic
-        // for (let pos of this.matrix.everyPos()) {
-        //     if (this.lookup.at(pos, Direction.Top) ==
-        //         this.lookup.at(pos, Direction.Bottom)) {
-        //         return false;
-        //     }
-        //     if (this.lookup.at(pos, Direction.Left) ==
-        //         this.lookup.at(pos, Direction.Right)) {
-        //         return false;
-        //     }
-        //     if (this.lookup.at(pos, Direction.Bottom) ==
-        //         this.lookup.at(pos, Direction.Right) &&
-        //         this.lookup.at(pos, Direction.Left) ==
-        //         this.lookup.at(pos, Direction.Top)) {
-        //         return false;
-        //     }
-        //     if (this.lookup.at(pos, Direction.Bottom) ==
-        //         this.lookup.at(pos, Direction.Left) &&
-        //         this.lookup.at(pos, Direction.Right) ==
-        //         this.lookup.at(pos, Direction.Top)) {
-        //         return false;
-        //     }
-        // }
-        // // pair validation heuristic
-        // for (let { first, second } of this.matrix.hPairs) {
-        //     if (this.lookup.at(first, Direction.Top) ==
-        //         this.lookup.at(second, Direction.Top)) {
-        //         return false;
-        //     }
-        //     if (this.lookup.at(first, Direction.Bottom) ==
-        //         this.lookup.at(second, Direction.Bottom)) {
-        //         return false;
-        //     }
-        // }
-        // for (let { first, second } of this.matrix.vPairs) {
-        //     if (this.lookup.at(first, Direction.Right) ==
-        //         this.lookup.at(second, Direction.Right)) {
-        //         return false;
-        //     }
-        //     if (this.lookup.at(first, Direction.Left) ==
-        //         this.lookup.at(second, Direction.Left)) {
-        //         return false;
-        //     }
-        // }
-        this.stats = this.transform.isUnique();
-        return !this.stats.aborted;
+        // TODO enable on demand
+        // local validation heuristic
+        for (let pos of this.matrix.everyPos()) {
+            if (this.lookup.at(pos, Direction.Top) ==
+                this.lookup.at(pos, Direction.Bottom)) {
+                return false;
+            }
+            if (this.lookup.at(pos, Direction.Left) ==
+                this.lookup.at(pos, Direction.Right)) {
+                return false;
+            }
+            if (this.lookup.at(pos, Direction.Bottom) ==
+                this.lookup.at(pos, Direction.Right) &&
+                this.lookup.at(pos, Direction.Left) ==
+                    this.lookup.at(pos, Direction.Top)) {
+                return false;
+            }
+            if (this.lookup.at(pos, Direction.Bottom) ==
+                this.lookup.at(pos, Direction.Left) &&
+                this.lookup.at(pos, Direction.Right) ==
+                    this.lookup.at(pos, Direction.Top)) {
+                return false;
+            }
+        }
+        // pair validation heuristic
+        for (let { first, second } of this.matrix.hPairs) {
+            if (this.lookup.at(first, Direction.Top) ==
+                this.lookup.at(second, Direction.Top)) {
+                return false;
+            }
+            if (this.lookup.at(first, Direction.Bottom) ==
+                this.lookup.at(second, Direction.Bottom)) {
+                return false;
+            }
+        }
+        for (let { first, second } of this.matrix.vPairs) {
+            if (this.lookup.at(first, Direction.Right) ==
+                this.lookup.at(second, Direction.Right)) {
+                return false;
+            }
+            if (this.lookup.at(first, Direction.Left) ==
+                this.lookup.at(second, Direction.Left)) {
+                return false;
+            }
+        }
+        let out = this.transform.isUnique();
+        this.stats = out;
+        return !out.aborted;
     }
     // brute force
+    swipeLength() {
+        return this.matrix.swipeLength(this.maxBound);
+    }
     *swipe() {
         for (let _ of this.matrix.swipe(this.maxBound)) {
             yield null;
@@ -389,8 +393,9 @@ class Solution {
             piece.translation = new Maths.Vector(pos.col * 10, pos.row * 10);
             group.appendChild(piece);
         }
+        let validCount = this.stats.validCount / 8;
         let almostRate = this.stats.almostValidCount / this.stats.validCount;
-        group.appendChild(new Svg.Text(`${this.stats.validCount} | x${almostRate.toFixed(1)}`, this.matrix.cols * 5, 0, { className: "stat-label" }));
+        group.appendChild(new Svg.Text(`${validCount} | x${almostRate.toFixed(1)}`, this.matrix.cols * 5, 0, { className: "stat-label" }));
         return frame.domEl;
     }
 }
@@ -399,24 +404,28 @@ function* generate(rows, cols, maxBound) {
     let timeWindowCount = 0;
     let totalCount = 0;
     let timeWindowStart = Date.now();
+    let swipeIndex = 0;
     let sol = new WorkerSolution(rows, cols, maxBound);
+    const swipeLength = sol.swipeLength();
     for (let _ of sol.swipe()) {
         if (sol.isUnique()) {
-            yield sol.serialize();
+            yield { sol: sol.serialize() };
             yieldCount++;
         }
         totalCount++;
         timeWindowCount++;
         let timeInMs = Date.now();
-        if (timeInMs - timeWindowStart > 1000) {
-            console.log("Rate", timeWindowCount, "/ sec");
+        if (timeInMs - timeWindowStart > 500) {
+            yield {
+                rate: timeWindowCount * (1000 / 500),
+                progress: swipeIndex / swipeLength
+            };
             timeWindowCount = 0;
-            timeWindowStart += 1000;
+            timeWindowStart = timeInMs;
         }
-        if (yieldCount >= 100) {
-            break;
-        }
+        swipeIndex++;
     }
     console.log("Total try", totalCount);
+    assert(totalCount == swipeLength, "Wrong swipe length", swipeLength);
 }
 export { generate, Solution };
