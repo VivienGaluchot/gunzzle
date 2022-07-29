@@ -23,10 +23,22 @@ async function execWithFormData(formData: FormData, output: Element) {
     let cancelBtn = checkBtn(document.getElementById("btn-cancel"));
     let progressBar = checkNonNull(document.getElementById("gen-progress"));
     let progressLabel = checkNonNull(document.getElementById("gen-progress-label"));
+    let remTimeLabel = checkNonNull(document.getElementById("gen-rem-time-label"));
 
+    let launchTimeInMs = 0;
     function setProgressPercent(progress: number) {
+        let remTimeInMs = 0;
+        if (progress == 0) {
+            launchTimeInMs = Date.now();
+        } else {
+            let dt = Date.now() - launchTimeInMs;
+            let etaInMs = dt * (100 / progress);
+            remTimeInMs = etaInMs - dt;
+        }
+        let remTimeInMin = remTimeInMs / 60000;
         progressBar.setAttribute("value", progress.toString());
         progressLabel.innerText = `${progress.toFixed(1)} %`;
+        remTimeLabel.innerText = `${remTimeInMin.toFixed(1)} min left`;
     }
 
     function getIntProp(name: string): number {
@@ -45,7 +57,8 @@ async function execWithFormData(formData: FormData, output: Element) {
 
     let rows = getIntProp("row_count");
     let cols = getIntProp("col_count");
-    let fragments = getIntProp("fragment_count");
+    let links = getIntProp("link_count");
+    let targetUnique = formData.has("target_unique");
 
     while (output.firstChild != null) {
         output.firstChild.remove();
@@ -100,8 +113,13 @@ async function execWithFormData(formData: FormData, output: Element) {
         cancelBtn.disabled = true;
     });
     cancelBtn.disabled = false;
-
-    worker.postMessage({ rows, cols, fragments });
+    let input: Puzzle.GenInput = {
+        rows: rows,
+        cols: cols,
+        links: links,
+        targetUnique: targetUnique
+    };
+    worker.postMessage(input);
 
     return promise;
 }

@@ -43,22 +43,31 @@ body>footer {
 form {
     display: grid;
     grid-gap: 1rem;
-    grid-template-columns: 1fr auto;
+    grid-template-columns: 1fr 1fr;
     align-items: baseline;
 }
 
-form input {
+form>hr {
+    grid-column: 1 / 3;
+    width: 100%;
+    opacity: .1;
+}
+
+form input:not([type='checkbox']) {
+    justify-self: stretch;
+    min-width: 5rem;
+}
+
+form input[type='checkbox'] {
     justify-self: start;
 }
 
-form button {
-    grid-column: 1/3;
-    justify-self: stretch;
-}
-
-input {
-    min-width: 5rem;
-    width: 5rem;
+form>.help {
+    grid-column: 1 / 3;
+    font-size: small;
+    opacity: .6;
+    max-width: 40ch;
+    margin-top: -1rem;
 }
 
 .btn-bar {
@@ -77,13 +86,19 @@ input {
 
 .progress-bar {
     margin: 1rem 0;
-    display: flex;
-    flex-wrap: wrap;
-    gap: .5rem;
+    display: grid;
+    grid-template-columns: 1fr auto;
+}
+
+.progress-bar>div {
+    font-size: small;
+    opacity: .6;
+    max-width: 40ch;
 }
 
 .progress-bar>progress {
-    flex-grow: 1;
+    grid-column: span 2;
+    width: 100%;
 }
 
 
@@ -111,7 +126,6 @@ form {
 }
 
 label {
-    padding: .5rem 0;
     font-size: 1rem;
     font-weight: 300;
     font-weight: 200;

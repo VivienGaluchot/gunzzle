@@ -4,8 +4,8 @@ import * as Puzzle from './lib/puzzle.js';
 
 onmessage = async (event) => {
     let data = event.data;
-    console.log('Worker generation started');
-    for (let solution of Puzzle.generate(data.rows, data.cols, data.fragments)) {
+    console.log("Worker generation started", data);
+    for (let solution of Puzzle.generate(data)) {
         postMessage(solution);
     }
     postMessage(null);

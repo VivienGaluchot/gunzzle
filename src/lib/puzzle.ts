@@ -255,7 +255,7 @@ class Transform {
         this.lookup = new Lookup(matrix);
     }
 
-    isUnique(): ConstructOutputInfo {
+    isNewBest(): ConstructOutputInfo {
         let pieces: Pos[] = [];
         for (let pos of this.matrix.everyPos()) {
             pieces.push(pos);
@@ -388,58 +388,61 @@ class WorkerSolution {
 
     // puzzle logic
 
-    isUnique(): boolean {
-        // Heuristics will reduce the number of possibility to find
+    isNewBest(targetUnique: boolean): boolean {
+        // Heuristics to reduce the number of possibility to find
         // a perfect unique solution faster.
         // May skip some good but not perfect solutions.
-        // TODO enable on demand
 
-        // local validation heuristic
-        for (let pos of this.matrix.everyPos()) {
-            if (this.lookup.at(pos, Direction.Top) ==
-                this.lookup.at(pos, Direction.Bottom)) {
-                return false;
+        if (targetUnique) {
+            // local validation heuristic
+            for (let pos of this.matrix.everyPos()) {
+                if (this.lookup.at(pos, Direction.Top) ==
+                    this.lookup.at(pos, Direction.Bottom)) {
+                    return false;
+                }
+                if (this.lookup.at(pos, Direction.Left) ==
+                    this.lookup.at(pos, Direction.Right)) {
+                    return false;
+                }
+                if (this.lookup.at(pos, Direction.Bottom) ==
+                    this.lookup.at(pos, Direction.Right) &&
+                    this.lookup.at(pos, Direction.Left) ==
+                    this.lookup.at(pos, Direction.Top)) {
+                    return false;
+                }
+                if (this.lookup.at(pos, Direction.Bottom) ==
+                    this.lookup.at(pos, Direction.Left) &&
+                    this.lookup.at(pos, Direction.Right) ==
+                    this.lookup.at(pos, Direction.Top)) {
+                    return false;
+                }
             }
-            if (this.lookup.at(pos, Direction.Left) ==
-                this.lookup.at(pos, Direction.Right)) {
-                return false;
+            // pair validation heuristic
+            for (let { first, second } of this.matrix.hPairs) {
+                if (this.lookup.at(first, Direction.Top) ==
+                    this.lookup.at(second, Direction.Top)) {
+                    return false;
+                }
+                if (this.lookup.at(first, Direction.Bottom) ==
+                    this.lookup.at(second, Direction.Bottom)) {
+                    return false;
+                }
             }
-            if (this.lookup.at(pos, Direction.Bottom) ==
-                this.lookup.at(pos, Direction.Right) &&
-                this.lookup.at(pos, Direction.Left) ==
-                this.lookup.at(pos, Direction.Top)) {
-                return false;
+            for (let { first, second } of this.matrix.vPairs) {
+                if (this.lookup.at(first, Direction.Right) ==
+                    this.lookup.at(second, Direction.Right)) {
+                    return false;
+                }
+                if (this.lookup.at(first, Direction.Left) ==
+                    this.lookup.at(second, Direction.Left)) {
+                    return false;
+                }
             }
-            if (this.lookup.at(pos, Direction.Bottom) ==
-                this.lookup.at(pos, Direction.Left) &&
-                this.lookup.at(pos, Direction.Right) ==
-                this.lookup.at(pos, Direction.Top)) {
-                return false;
-            }
-        }
-        // pair validation heuristic
-        for (let { first, second } of this.matrix.hPairs) {
-            if (this.lookup.at(first, Direction.Top) ==
-                this.lookup.at(second, Direction.Top)) {
-                return false;
-            }
-            if (this.lookup.at(first, Direction.Bottom) ==
-                this.lookup.at(second, Direction.Bottom)) {
-                return false;
-            }
-        }
-        for (let { first, second } of this.matrix.vPairs) {
-            if (this.lookup.at(first, Direction.Right) ==
-                this.lookup.at(second, Direction.Right)) {
-                return false;
-            }
-            if (this.lookup.at(first, Direction.Left) ==
-                this.lookup.at(second, Direction.Left)) {
-                return false;
-            }
+            // TODO triplet validation heuristic
+
         }
 
-        let out = this.transform.isUnique();
+        let out = this.transform.isNewBest();
         this.stats = out;
         return !out.aborted;
     }
@@ -513,27 +516,32 @@ class Solution {
     }
 }
 
+interface GenInput {
+    rows: number,
+    cols: number,
+    links: number,
+    targetUnique: boolean
+}
+
 interface GenOutput {
     sol?: SerializedSolution,
     rate?: number,
     progress?: number,
 }
 
-function* generate(rows: number, cols: number, maxBound: number): Generator<GenOutput> {
-    let yieldCount = 0;
+function* generate(input: GenInput): Generator<GenOutput> {
     let timeWindowCount = 0;
     let totalCount = 0;
 
     let timeWindowStart = Date.now();
     let swipeIndex = 0;
 
-    let sol = new WorkerSolution(rows, cols, maxBound);
+    let sol = new WorkerSolution(input.rows, input.cols, input.links);
     const swipeLength = sol.swipeLength()
 
     for (let _ of sol.swipe()) {
-        if (sol.isUnique()) {
+        if (sol.isNewBest(input.targetUnique)) {
             yield { sol: sol.serialize() };
-            yieldCount++;
         }
         totalCount++;
         timeWindowCount++;
@@ -555,4 +563,4 @@ function* generate(rows: number, cols: number, maxBound: number): Generator<GenO
     assert(totalCount == swipeLength, "Wrong swipe length", swipeLength);
 }
 
-export { generate, Solution, GenOutput }
+export { generate, Solution, GenInput, GenOutput }
