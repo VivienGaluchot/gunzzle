@@ -29,6 +29,12 @@ interface Pair {
     second: Pos
 }
 
+interface Triplet {
+    first: Pos,
+    second: Pos,
+    third: Pos
+}
+
 interface FragmentIndex {
     idx: number, sign: number
 }
@@ -89,6 +95,9 @@ class FragmentMatrix {
     readonly hPairs: Pair[];
     readonly vPairs: Pair[];
 
+    readonly hTriplets: Triplet[];
+    readonly vTriplets: Triplet[];
+
     private readonly colSize: number;
     private readonly rowSize: number;
 
@@ -104,12 +113,21 @@ class FragmentMatrix {
         this.array = new Array(len).fill(initial);
 
         this.hPairs = [];
-        for (let pair of this.hPairsGen()) {
-            this.hPairs.push(pair);
+        for (let pair of this.hPairsGen(2)) {
+            this.hPairs.push({ first: pair[0], second: pair[1] });
         }
         this.vPairs = [];
-        for (let pair of this.vPairsGen()) {
-            this.vPairs.push(pair);
+        for (let pair of this.vPairsGen(2)) {
+            this.vPairs.push({ first: pair[0], second: pair[1] });
+        }
+
+        this.hTriplets = [];
+        for (let pair of this.hPairsGen(3)) {
+            this.hTriplets.push({ first: pair[0], second: pair[1], third: pair[2] });
+        }
+        this.vTriplets = [];
+        for (let pair of this.vPairsGen(3)) {
+            this.vTriplets.push({ first: pair[0], second: pair[1], third: pair[2] });
         }
     }
 
@@ -176,18 +194,26 @@ class FragmentMatrix {
 
     // internal
 
-    private * hPairsGen(): Generator<Pair> {
+    private * hPairsGen(count: number): Generator<Pos[]> {
         for (let row = 0; row < this.rows; row++) {
-            for (let col = 1; col < this.cols; col++) {
-                yield { first: { row: row, col: col - 1 }, second: { row: row, col: col } };
+            for (let col = 0; col < this.cols - (count - 1); col++) {
+                let arr = [];
+                for (let i = 0; i < count; i++) {
+                    arr.push({ row: row, col: col + i })
+                }
+                yield arr;
             }
         }
     }
 
-    private * vPairsGen(): Generator<Pair> {
-        for (let row = 1; row < this.rows; row++) {
+    private * vPairsGen(count: number): Generator<Pos[]> {
+        for (let row = 0; row < this.rows - (count - 1); row++) {
             for (let col = 0; col < this.cols; col++) {
-                yield { first: { row: row - 1, col: col }, second: { row: row, col: col } };
+                let arr = [];
+                for (let i = 0; i < count; i++) {
+                    arr.push({ row: row + i, col: col })
+                }
+                yield arr;
             }
         }
     }
@@ -246,13 +272,13 @@ class Transform {
     readonly matrix: FragmentMatrix;
     readonly lookup: Lookup;
 
-    // TODO conf from website
-    private maxCount = 1000;
+    private maxCount: number;
     private minAlmostCount = -1;
 
-    constructor(matrix: FragmentMatrix) {
+    constructor(matrix: FragmentMatrix, validCountCutoff: number) {
         this.matrix = matrix;
         this.lookup = new Lookup(matrix);
+        this.maxCount = validCountCutoff;
     }
 
     isNewBest(): ConstructOutputInfo {
@@ -366,11 +392,11 @@ class WorkerSolution {
     readonly transform: Transform;
     stats: SolutionStats;
 
-    constructor(rows: number, cols: number, maxBound: number) {
+    constructor(rows: number, cols: number, maxBound: number, validCountCutoff: number) {
         this.maxBound = maxBound;
         this.matrix = new FragmentMatrix(rows, cols, -1 * maxBound);
         this.lookup = new Lookup(this.matrix);
-        this.transform = new Transform(this.matrix);
+        this.transform = new Transform(this.matrix, validCountCutoff);
         this.stats = {
             validCount: 0,
             almostValidCount: 0
@@ -394,7 +420,7 @@ class WorkerSolution {
         // May skip some good but not perfect solutions.
 
         if (targetUnique) {
-            // local validation heuristic
+            // local validation
             for (let pos of this.matrix.everyPos()) {
                 if (this.lookup.at(pos, Direction.Top) ==
                     this.lookup.at(pos, Direction.Bottom)) {
@@ -417,7 +443,7 @@ class WorkerSolution {
                     return false;
                 }
             }
-            // pair validation heuristic
+            // pair validation
             for (let { first, second } of this.matrix.hPairs) {
                 if (this.lookup.at(first, Direction.Top) ==
                     this.lookup.at(second, Direction.Top)) {
@@ -438,8 +464,27 @@ class WorkerSolution {
                     return false;
                 }
             }
-            // TODO triplet validation heuristic
-
+            // triplet validation
+            for (let { first, third } of this.matrix.hTriplets) {
+                if (this.lookup.at(first, Direction.Top) ==
+                    this.lookup.at(third, Direction.Top)) {
+                    return false;
+                }
+                if (this.lookup.at(first, Direction.Bottom) ==
+                    this.lookup.at(third, Direction.Bottom)) {
+                    return false;
+                }
+            }
+            for (let { first, third } of this.matrix.vTriplets) {
+                if (this.lookup.at(first, Direction.Right) ==
+                    this.lookup.at(third, Direction.Right)) {
+                    return false;
+                }
+                if (this.lookup.at(first, Direction.Left) ==
+                    this.lookup.at(third, Direction.Left)) {
+                    return false;
+                }
+            }
         }
 
         let out = this.transform.isNewBest();
@@ -520,6 +565,7 @@ interface GenInput {
     rows: number,
     cols: number,
     links: number,
+    validCountCutoff: number,
     targetUnique: boolean
 }
 
@@ -536,7 +582,7 @@ function* generate(input: GenInput): Generator<GenOutput> {
     let timeWindowStart = Date.now();
     let swipeIndex = 0;
 
-    let sol = new WorkerSolution(input.rows, input.cols, input.links);
+    let sol = new WorkerSolution(input.rows, input.cols, input.links, input.validCountCutoff * 8);
     const swipeLength = sol.swipeLength()
 
     for (let _ of sol.swipe()) {

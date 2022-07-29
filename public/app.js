@@ -52,6 +52,7 @@ async function execWithFormData(formData, output) {
     let rows = getIntProp("row_count");
     let cols = getIntProp("col_count");
     let links = getIntProp("link_count");
+    let validCountCutoff = getIntProp("valid_count_cutoff");
     let targetUnique = formData.has("target_unique");
     while (output.firstChild != null) {
         output.firstChild.remove();
@@ -109,6 +110,7 @@ async function execWithFormData(formData, output) {
         rows: rows,
         cols: cols,
         links: links,
+        validCountCutoff: validCountCutoff,
         targetUnique: targetUnique
     };
     worker.postMessage(input);
