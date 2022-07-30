@@ -21,20 +21,20 @@
             <p>Generate puzzle configuration.</p>
             <form class="gen-form" onsubmit="return false;">
                 <label for="form-rows">Rows</label>
-                <input id="form-rows" type="number" name="row_count" value="2" min="1" max="100" />
+                <input id="form-rows" type="number" name="row_count" value="3" min="1" max="100" />
                 <label for="form-cols">Cols</label>
-                <input id="form-cols" type="number" name="col_count" value="2" min="1" max="100" />
+                <input id="form-cols" type="number" name="col_count" value="3" min="1" max="100" />
                 <label for="form-fr">Links</label>
-                <input id="form-fr" type="number" name="link_count" value="2" min="1" max="100" />
+                <input id="form-fr" type="number" name="link_count" value="3" min="1" max="100" />
                 <hr>
                 <label for="form-mode">Solver mode</label>
                 <select id="form-mode" name="mode">
                     <option value="brt">Brute force</option>
-                    <option value="gen">Genetic</option>
+                    <option value="gen" selected>Genetic</option>
                 </select>
                 <label for="form-cutoff">Cutoff</label>
                 <input id="form-cutoff" type="number" name="valid_count_cutoff" value="256" min="1" />
-                <div class="help">Initial max number of valid solutions.</div>
+                <div class="help">Initial max number of valid solutions. Not used in Genetic solver mode.</div>
                 <label for="form-heur">Target unique</label>
                 <input id="form-heur" type="checkbox" name="target_unique">
                 <div class="help">Get to unique solution puzzle faster. Will skip potential good non unique solutions.</div>

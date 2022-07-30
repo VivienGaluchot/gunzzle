@@ -182,4 +182,10 @@ function checkIsFinite(n) {
         throw new Error("invalid number");
     }
 }
-export { Vector, Rect, swipe, checkIsFinite };
+// Output in [min; max[
+function getRandomInt(min, max) {
+    min = Math.ceil(min);
+    max = Math.floor(max);
+    return Math.floor(Math.random() * (max - min)) + min;
+}
+export { Vector, Rect, swipe, checkIsFinite, getRandomInt };

@@ -15,6 +15,28 @@ var Direction;
     Direction[Direction["Left"] = 3] = "Left";
 })(Direction || (Direction = {}));
 const DIRECTION_COUNT = 4;
+function fragmentNext(fragment, maxBound) {
+    if (fragment == -1) {
+        return 1;
+    }
+    else if (fragment >= maxBound) {
+        return -1 * maxBound;
+    }
+    else {
+        return fragment + 1;
+    }
+}
+function fragmentPrev(fragment, maxBound) {
+    if (fragment == 1) {
+        return -1;
+    }
+    else if (fragment <= -1 * maxBound) {
+        return maxBound;
+    }
+    else {
+        return fragment - 1;
+    }
+}
 function matrixIncrement(matrix, maxBound) {
     // skip first fragment as the value is selected arbitrarily
     for (let idx = 1; idx < matrix.length; idx++) {
@@ -140,6 +162,45 @@ class FragmentMatrix {
             yield null;
         }
     }
+    // generic
+    randomize(maxBound) {
+        for (let idx = 0; idx < this.array.length; idx++) {
+            let x = Maths.getRandomInt(0, maxBound * 2);
+            if (x < maxBound) {
+                // -maxBound .. -1
+                this.array[idx] = -1 * maxBound + x;
+            }
+            else {
+                // 1 .. maxBound
+                this.array[idx] = x - maxBound + 1;
+            }
+        }
+    }
+    *localEvolutions(maxBound) {
+        for (let idx = 0; idx < this.array.length; idx++) {
+            let initial = this.array[idx];
+            this.array[idx] = fragmentNext(initial, maxBound);
+            yield { idx: idx, value: this.array[idx] };
+            this.array[idx] = initial;
+        }
+        for (let idx = 0; idx < this.array.length; idx++) {
+            let initial = this.array[idx];
+            this.array[idx] = fragmentPrev(initial, maxBound);
+            yield { idx: idx, value: this.array[idx] };
+            this.array[idx] = initial;
+        }
+        for (let idx = 0; idx < this.array.length; idx++) {
+            let initial = this.array[idx];
+            this.array[idx] = -1 * initial;
+            yield { idx: idx, value: this.array[idx] };
+            this.array[idx] = initial;
+        }
+    }
+    selectEvolution(evolution) {
+        for (let idx = 0; idx < this.array.length; idx++) {
+            this.array[evolution.idx] = evolution.value;
+        }
+    }
     // internal
     *hPairsGen(count) {
         for (let row = 0; row < this.rows; row++) {
@@ -206,12 +267,7 @@ class Transform {
         let input = {
             maxValidCount: this.maxCount,
         };
-        let output = {
-            aborted: false,
-            validCount: 0,
-            almostValidCount: 0
-        };
-        this.recConstruct({ row: 0, col: 0 }, pieces, input, output);
+        let output = this.trCompute(input);
         if (!output.aborted) {
             assert(output.validCount % 8 == 0, "unexpected output", output);
             if (output.validCount < this.maxCount) {
@@ -228,6 +284,19 @@ class Transform {
                 output.aborted = true;
             }
         }
+        return output;
+    }
+    trCompute(input) {
+        let pieces = [];
+        for (let pos of this.matrix.everyPos()) {
+            pieces.push(pos);
+        }
+        let output = {
+            aborted: false,
+            validCount: 0,
+            almostValidCount: 0
+        };
+        this.recConstruct({ row: 0, col: 0 }, pieces, input, output);
         return output;
     }
     // internal
@@ -391,6 +460,38 @@ class WorkerSolution {
             yield null;
         }
     }
+    // generic
+    randomize() {
+        this.matrix.randomize(this.maxBound);
+    }
+    *evolve() {
+        let trInput = { maxValidCount: Infinity };
+        let bestOutput = null;
+        while (true) {
+            let next = null;
+            for (let evolution of this.matrix.localEvolutions(this.maxBound)) {
+                let output = this.transform.trCompute(trInput);
+                console.log("evolve", evolution, "->", output);
+                if (!output.aborted) {
+                    if (bestOutput == null || (output.validCount < bestOutput.validCount)) {
+                        next = evolution;
+                        bestOutput = output;
+                        trInput.maxValidCount = bestOutput.validCount;
+                        this.stats = output;
+                    }
+                }
+            }
+            if (next) {
+                console.log("Evolution step", bestOutput);
+                this.matrix.selectEvolution(next);
+                yield null;
+            }
+            else {
+                console.log("Local minima reached");
+                return;
+            }
+        }
+    }
 }
 class Solution {
     constructor(rows, cols, stats) {
@@ -453,11 +554,10 @@ function* derive(input, sol) {
         }
     }
     if (input.mode == GenMode.Genetic) {
-        // TODO
-        // 1. rand init
-        // 2. loop
-        //   - select the best improving solution if exists
-        //   - else rand evolve / full rethrow if locked in local min for too long
+        sol.randomize();
+        for (let _ of sol.evolve()) {
+            yield sol.serialize();
+        }
     }
 }
 function* generate(input) {

@@ -39,6 +39,26 @@ interface FragmentIndex {
     idx: number, sign: number
 }
 
+function fragmentNext(fragment: number, maxBound: number): number {
+    if (fragment == -1) {
+        return 1;
+    } else if (fragment >= maxBound) {
+        return -1 * maxBound;
+    } else {
+        return fragment + 1;
+    }
+}
+
+function fragmentPrev(fragment: number, maxBound: number): number {
+    if (fragment == 1) {
+        return -1;
+    } else if (fragment <= -1 * maxBound) {
+        return maxBound;
+    } else {
+        return fragment - 1;
+    }
+}
+
 function matrixIncrement(matrix: number[], maxBound: number) {
     // skip first fragment as the value is selected arbitrarily
     for (let idx = 1; idx < matrix.length; idx++) {
@@ -83,6 +103,10 @@ function rotate(dir: Direction, r: number): Direction {
     }
 }
 
+interface MatrixEvolution {
+    idx: number,
+    value: number
+}
 
 class FragmentMatrix {
     readonly rows: number;
@@ -192,6 +216,48 @@ class FragmentMatrix {
         }
     }
 
+    // generic
+
+    randomize(maxBound: number) {
+        for (let idx = 0; idx < this.array.length; idx++) {
+            let x = Maths.getRandomInt(0, maxBound * 2);
+            if (x < maxBound) {
+                // -maxBound .. -1
+                this.array[idx] = -1 * maxBound + x;
+            } else {
+                // 1 .. maxBound
+                this.array[idx] = x - maxBound + 1;
+            }
+        }
+    }
+
+    * localEvolutions(maxBound: number): Generator<MatrixEvolution> {
+        for (let idx = 0; idx < this.array.length; idx++) {
+            let initial = this.array[idx];
+            this.array[idx] = fragmentNext(initial, maxBound);
+            yield { idx: idx, value: this.array[idx] };
+            this.array[idx] = initial;
+        }
+        for (let idx = 0; idx < this.array.length; idx++) {
+            let initial = this.array[idx];
+            this.array[idx] = fragmentPrev(initial, maxBound);
+            yield { idx: idx, value: this.array[idx] };
+            this.array[idx] = initial;
+        }
+        for (let idx = 0; idx < this.array.length; idx++) {
+            let initial = this.array[idx];
+            this.array[idx] = -1 * initial;
+            yield { idx: idx, value: this.array[idx] };
+            this.array[idx] = initial;
+        }
+    }
+
+    selectEvolution(evolution: MatrixEvolution) {
+        for (let idx = 0; idx < this.array.length; idx++) {
+            this.array[evolution.idx] = evolution.value;
+        }
+    }
+
     // internal
 
     private * hPairsGen(count: number): Generator<Pos[]> {
@@ -260,11 +326,11 @@ interface SolutionStats {
     almostValidCount: number;
 }
 
-interface ConstructInputInfo {
+interface TrComputeInput {
     maxValidCount: number;
 }
 
-interface ConstructOutputInfo extends SolutionStats {
+interface TrComputeOutput extends SolutionStats {
     aborted: boolean;
 }
 
@@ -281,7 +347,7 @@ class Transform {
         this.maxCount = validCountCutoff;
     }
 
-    isNewBest(): ConstructOutputInfo {
+    isNewBest(): TrComputeOutput {
         let pieces: Pos[] = [];
         for (let pos of this.matrix.everyPos()) {
             pieces.push(pos);
@@ -290,13 +356,7 @@ class Transform {
         let input = {
             maxValidCount: this.maxCount,
         };
-        let output = {
-            aborted: false,
-            validCount: 0,
-            almostValidCount: 0
-        };
-        this.recConstruct({ row: 0, col: 0 }, pieces, input, output);
-
+        let output = this.trCompute(input);
         if (!output.aborted) {
             assert(output.validCount % 8 == 0, "unexpected output", output);
             if (output.validCount < this.maxCount) {
@@ -315,12 +375,26 @@ class Transform {
         return output;
     }
 
+    trCompute(input: TrComputeInput): TrComputeOutput {
+        let pieces: Pos[] = [];
+        for (let pos of this.matrix.everyPos()) {
+            pieces.push(pos);
+        }
+        let output = {
+            aborted: false,
+            validCount: 0,
+            almostValidCount: 0
+        };
+        this.recConstruct({ row: 0, col: 0 }, pieces, input, output);
+        return output;
+    }
+
     // internal
 
     // fixedCount: [0; rows * cols] number of pieces with defined
     // remaining: set of pieces not placed yet
     // return true when at least one solution have been found
-    private recConstruct(pos: Pos, remaining: Pos[], input: ConstructInputInfo, output: ConstructOutputInfo): boolean {
+    private recConstruct(pos: Pos, remaining: Pos[], input: TrComputeInput, output: TrComputeOutput): boolean {
         if (remaining.length == 0) {
             output.validCount++;
             return true;
@@ -503,6 +577,41 @@ class WorkerSolution {
             yield null;
         }
     }
+
+    // generic
+
+    randomize() {
+        this.matrix.randomize(this.maxBound);
+    }
+
+    * evolve(): Generator<null> {
+        let trInput: TrComputeInput = { maxValidCount: Infinity };
+        let bestOutput: TrComputeOutput | null = null;
+        while (true) {
+            let next = null;
+            for (let evolution of this.matrix.localEvolutions(this.maxBound)) {
+                let output = this.transform.trCompute(trInput);
+                console.log("evolve", evolution, "->", output);
+                if (!output.aborted) {
+                    // TODO check for difficulty increase
+                    if (bestOutput == null || (output.validCount < bestOutput.validCount)) {
+                        next = evolution;
+                        bestOutput = output;
+                        trInput.maxValidCount = bestOutput.validCount;
+                        this.stats = output;
+                    }
+                }
+            }
+            if (next) {
+                console.log("Evolution step", bestOutput);
+                this.matrix.selectEvolution(next);
+                yield null;
+            } else {
+                console.log("Local minima reached");
+                return;
+            }
+        }
+    }
 }
 
 
@@ -593,11 +702,10 @@ function* derive(input: GenInput, sol: WorkerSolution): Generator<SerializedSolu
         }
     }
     if (input.mode == GenMode.Genetic) {
-        // TODO
-        // 1. rand init
-        // 2. loop
-        //   - select the best improving solution if exists
-        //   - else rand evolve / full rethrow if locked in local min for too long
+        sol.randomize();
+        for (let _ of sol.evolve()) {
+            yield sol.serialize();
+        }
     }
 }
 
