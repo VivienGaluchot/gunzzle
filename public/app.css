@@ -43,7 +43,7 @@ body>footer {
 form {
     display: grid;
     grid-gap: 1rem;
-    grid-template-columns: 1fr auto;
+    grid-template-columns: 1fr max-content;
     align-items: baseline;
 }
 
@@ -53,13 +53,12 @@ form>hr {
     opacity: .1;
 }
 
-form input:not([type='checkbox']) {
-    justify-self: stretch;
-    width: 5rem;
-}
-
 form input[type='checkbox'] {
     justify-self: start;
+}
+
+form input[type='number'] {
+    width: 15ch;
 }
 
 form>.help {
@@ -142,6 +141,7 @@ a {
     text-decoration: none;
 }
 
+select,
 input,
 button {
     color: var(--text-color);
@@ -149,7 +149,7 @@ button {
     border: 1px solid var(--text-color);
     outline: 0 solid var(--outline-color);
     border-radius: .2rem;
-    padding: .5rem 1rem;
+    padding: .5rem;
     font-family: 'Roboto Serif', serif;
     transition: all .1s ease-in;
     font-size: 1rem;
@@ -162,6 +162,8 @@ button:not(:disabled) {
 
 a:hover,
 a:focus,
+select:not(:disabled):hover,
+select:not(:disabled):focus,
 input:not(:disabled):hover,
 input:not(:disabled):focus,
 button:not(:disabled):hover,
@@ -181,9 +183,16 @@ button:active {
     filter: brightness(1.2);
 }
 
+select:disabled,
 input:disabled,
 button:disabled {
     filter: brightness(.8);
+}
+
+select {
+    --text-color: rgb(212, 212, 212);
+    --outline-color: rgba(212, 212, 212, 0.3);
+    --background-color: var(--bg-color);
 }
 
 input {

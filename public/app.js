@@ -36,6 +36,22 @@ async function execWithFormData(formData, output) {
         progressLabel.innerText = `${progress.toFixed(1)} %`;
         remTimeLabel.innerText = `${remTimeInMin.toFixed(1)} min left`;
     }
+    function setProgress(isDone) {
+        if (!isDone) {
+            progressBar.removeAttribute("value");
+        }
+        else {
+            progressBar.setAttribute("value", "0");
+        }
+        progressLabel.innerText = `-`;
+        remTimeLabel.innerText = `-`;
+    }
+    function getStrProp(name) {
+        if (!formData.has(name)) {
+            throw new Error(`form property ${name} missing`);
+        }
+        return formData.get(name).toString();
+    }
     function getIntProp(name) {
         if (!formData.has(name)) {
             throw new Error(`form property ${name} missing`);
@@ -54,6 +70,20 @@ async function execWithFormData(formData, output) {
     let links = getIntProp("link_count");
     let validCountCutoff = getIntProp("valid_count_cutoff");
     let targetUnique = formData.has("target_unique");
+    let mode = getStrProp("mode");
+    let genMode;
+    let isProgressAvailable;
+    if (mode == "brt") {
+        genMode = Puzzle.GenMode.BruteForce;
+        isProgressAvailable = true;
+    }
+    else if (mode == "gen") {
+        genMode = Puzzle.GenMode.Genetic;
+        isProgressAvailable = false;
+    }
+    else {
+        throw new Error(`mode value invalid: ${mode}`);
+    }
     while (output.firstChild != null) {
         output.firstChild.remove();
     }
@@ -62,17 +92,30 @@ async function execWithFormData(formData, output) {
     info.classList.add("info");
     output.appendChild(info);
     info.innerText = `running ...`;
-    setProgressPercent(0);
+    if (genMode == Puzzle.GenMode.BruteForce) {
+        setProgressPercent(0);
+    }
+    else {
+        setProgress(false);
+    }
     let worker = new Worker("worker.js", { type: "module" });
     let promise = new Promise((resolve, reject) => {
         cancelBtn.onclick = () => {
             worker.terminate();
+            if (!isProgressAvailable) {
+                setProgress(true);
+            }
             resolve("canceled");
         };
         worker.onmessage = (event) => {
             let data = event.data;
             if (data == null) {
-                setProgressPercent(100);
+                if (isProgressAvailable) {
+                    setProgressPercent(100);
+                }
+                else {
+                    setProgress(true);
+                }
                 worker.terminate();
                 resolve("done");
             }
@@ -86,7 +129,7 @@ async function execWithFormData(formData, output) {
                         output.lastChild?.remove();
                     }
                 }
-                if (data.progress) {
+                if (isProgressAvailable && data.progress) {
                     setProgressPercent(data.progress * 100);
                 }
                 if (data.rate) {
@@ -110,6 +153,7 @@ async function execWithFormData(formData, output) {
         rows: rows,
         cols: cols,
         links: links,
+        mode: genMode,
         validCountCutoff: validCountCutoff,
         targetUnique: targetUnique
     };

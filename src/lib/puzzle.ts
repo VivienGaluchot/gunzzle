@@ -561,10 +561,16 @@ class Solution {
     }
 }
 
+enum GenMode {
+    BruteForce,
+    Genetic,
+}
+
 interface GenInput {
     rows: number,
     cols: number,
     links: number,
+    mode: GenMode,
     validCountCutoff: number,
     targetUnique: boolean
 }
@@ -573,40 +579,67 @@ interface GenOutput {
     sol?: SerializedSolution,
     rate?: number,
     progress?: number,
+    iterCount: number,
+}
+
+function* derive(input: GenInput, sol: WorkerSolution): Generator<SerializedSolution | null> {
+    if (input.mode == GenMode.BruteForce) {
+        for (let _ of sol.swipe()) {
+            if (sol.isNewBest(input.targetUnique)) {
+                yield sol.serialize();
+            } else {
+                yield null;
+            }
+        }
+    }
+    if (input.mode == GenMode.Genetic) {
+        // TODO
+        // 1. rand init
+        // 2. loop
+        //   - select the best improving solution if exists
+        //   - else rand evolve / full rethrow if locked in local min for too long
+    }
 }
 
 function* generate(input: GenInput): Generator<GenOutput> {
     let timeWindowCount = 0;
-    let totalCount = 0;
+    let iterCount = 0;
 
     let timeWindowStart = Date.now();
     let swipeIndex = 0;
 
     let sol = new WorkerSolution(input.rows, input.cols, input.links, input.validCountCutoff * 8);
-    const swipeLength = sol.swipeLength()
+    let swipeLength = null;
+    if (input.mode == GenMode.BruteForce) {
+        swipeLength = sol.swipeLength();
+    }
 
-    for (let _ of sol.swipe()) {
-        if (sol.isNewBest(input.targetUnique)) {
-            yield { sol: sol.serialize() };
+    for (let derived of derive(input, sol)) {
+        if (derived) {
+            yield {
+                sol: derived,
+                iterCount: iterCount
+            };
         }
-        totalCount++;
+
+        iterCount++;
         timeWindowCount++;
+        swipeIndex++;
 
         let timeInMs = Date.now();
         if (timeInMs - timeWindowStart > 500) {
             yield {
                 rate: timeWindowCount * (1000 / 500),
-                progress: swipeIndex / swipeLength
+                progress: swipeLength ? swipeIndex / swipeLength : undefined,
+                iterCount: iterCount
             };
             timeWindowCount = 0;
             timeWindowStart = timeInMs;
         }
-
-        swipeIndex++;
     }
 
-    console.log("Total try", totalCount);
-    assert(totalCount == swipeLength, "Wrong swipe length", swipeLength);
+    console.log("Total try", iterCount);
+    assert(iterCount == swipeLength, "Wrong swipe length", swipeLength);
 }
 
-export { generate, Solution, GenInput, GenOutput }
+export { generate, Solution, GenMode, GenInput, GenOutput }
