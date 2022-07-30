@@ -492,6 +492,6 @@ function* generate(input) {
         }
     }
     console.log("Total try", iterCount);
-    assert(iterCount == swipeLength, "Wrong swipe length", swipeLength);
+    assert(swipeLength == null || iterCount == swipeLength, "Wrong swipe length", swipeLength);
 }
 export { generate, Solution, GenMode };
