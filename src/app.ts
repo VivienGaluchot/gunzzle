@@ -2,6 +2,8 @@
 
 import * as Puzzle from './lib/puzzle.js';
 
+const BASE_TITLE = document.title;
+
 function checkNonNull(element: HTMLElement | null): HTMLElement {
     if (element == null) {
         throw new Error("missing element");
@@ -131,6 +133,7 @@ async function execWithFormData(formData: FormData, output: Element) {
                     output.insertBefore(sol.render(), info.nextSibling);
                     count++;
                     info.innerText = `${count} solutions ...`;
+                    document.title = `${Puzzle.statsToString(sol.stats)} | ${BASE_TITLE}`
                     if (count > 100) {
                         output.lastChild?.remove();
                     }

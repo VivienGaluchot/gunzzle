@@ -39,23 +39,15 @@ interface FragmentIndex {
     idx: number, sign: number
 }
 
-function fragmentNext(fragment: number, maxBound: number): number {
-    if (fragment == -1) {
+function fragmentNext(fragment: number, maxBound: number, offset: number): number {
+    let normalizedOffset = offset % (maxBound * 2);
+    let next = fragment + normalizedOffset;
+    if (next == 0) {
         return 1;
-    } else if (fragment >= maxBound) {
-        return -1 * maxBound;
+    } else if (next > maxBound) {
+        return next - (2 * maxBound + 1);
     } else {
-        return fragment + 1;
-    }
-}
-
-function fragmentPrev(fragment: number, maxBound: number): number {
-    if (fragment == 1) {
-        return -1;
-    } else if (fragment <= -1 * maxBound) {
-        return maxBound;
-    } else {
-        return fragment - 1;
+        return next;
     }
 }
 
@@ -105,7 +97,8 @@ function rotate(dir: Direction, r: number): Direction {
 
 interface MatrixEvolution {
     idx: number,
-    value: number
+    value: number,
+    initial: number
 }
 
 class FragmentMatrix {
@@ -232,30 +225,19 @@ class FragmentMatrix {
     }
 
     * localEvolutions(maxBound: number): Generator<MatrixEvolution> {
-        for (let idx = 0; idx < this.array.length; idx++) {
-            let initial = this.array[idx];
-            this.array[idx] = fragmentNext(initial, maxBound);
-            yield { idx: idx, value: this.array[idx] };
-            this.array[idx] = initial;
-        }
-        for (let idx = 0; idx < this.array.length; idx++) {
-            let initial = this.array[idx];
-            this.array[idx] = fragmentPrev(initial, maxBound);
-            yield { idx: idx, value: this.array[idx] };
-            this.array[idx] = initial;
-        }
-        for (let idx = 0; idx < this.array.length; idx++) {
-            let initial = this.array[idx];
-            this.array[idx] = -1 * initial;
-            yield { idx: idx, value: this.array[idx] };
-            this.array[idx] = initial;
+        for (let off = 1; off < (maxBound * 2); off++) {
+            console.log("evolution offset", off);
+            for (let idx = 1; idx < this.array.length; idx++) {
+                let initial = this.array[idx];
+                this.array[idx] = fragmentNext(this.array[idx], maxBound, off);
+                yield { idx: idx, value: this.array[idx], initial: initial };
+                this.array[idx] = initial;
+            }
         }
     }
 
     selectEvolution(evolution: MatrixEvolution) {
-        for (let idx = 0; idx < this.array.length; idx++) {
-            this.array[evolution.idx] = evolution.value;
-        }
+        this.array[evolution.idx] = evolution.value;
     }
 
     // internal
@@ -358,7 +340,7 @@ class Transform {
         };
         let output = this.trCompute(input);
         if (!output.aborted) {
-            assert(output.validCount % 8 == 0, "unexpected output", output);
+            assert(output.validCount % ROTATION_R_COUNT == 0, "unexpected output", output);
             if (output.validCount < this.maxCount) {
                 console.debug("New max valid count", output);
                 this.maxCount = output.validCount;
@@ -580,37 +562,61 @@ class WorkerSolution {
 
     // generic
 
-    randomize() {
-        this.matrix.randomize(this.maxBound);
+    randomize(initialCutoff: number) {
+        let trInput: TrComputeInput = { maxValidCount: initialCutoff };
+        while (true) {
+            this.matrix.randomize(this.maxBound);
+            let output = this.trCompute(trInput);
+            if (!output.aborted) {
+                return;
+            } else {
+                console.log("Randomization retry");
+            }
+        }
     }
 
     * evolve(): Generator<null> {
+        // TODO
+        // - tilt to escape local minima
+        // - auto randomize and retry
         let trInput: TrComputeInput = { maxValidCount: Infinity };
         let bestOutput: TrComputeOutput | null = null;
         while (true) {
             let next = null;
             for (let evolution of this.matrix.localEvolutions(this.maxBound)) {
-                let output = this.transform.trCompute(trInput);
-                console.log("evolve", evolution, "->", output);
+                let output = this.trCompute(trInput);
                 if (!output.aborted) {
-                    // TODO check for difficulty increase
-                    if (bestOutput == null || (output.validCount < bestOutput.validCount)) {
+                    console.log("evolve", evolution, "->", output);
+                    if (bestOutput == null
+                        || (output.validCount < bestOutput.validCount)
+                        || (output.validCount == bestOutput.validCount && output.almostValidCount > bestOutput.almostValidCount)) {
                         next = evolution;
                         bestOutput = output;
                         trInput.maxValidCount = bestOutput.validCount;
-                        this.stats = output;
+                        break;
                     }
                 }
             }
             if (next) {
                 console.log("Evolution step", bestOutput);
                 this.matrix.selectEvolution(next);
+                this.stats = bestOutput!;
                 yield null;
             } else {
                 console.log("Local minima reached");
                 return;
             }
         }
+    }
+
+    // wrapper
+
+    private trCompute(input: TrComputeInput): TrComputeOutput {
+        let output = this.transform.trCompute(input);
+        if (!output.aborted) {
+            this.stats = output;
+        }
+        return output;
     }
 }
 
@@ -663,11 +669,15 @@ class Solution {
             group.appendChild(piece);
         }
 
-        let validCount = this.stats.validCount / 8;
-        let almostRate = this.stats.almostValidCount / this.stats.validCount;
-        group.appendChild(new Svg.Text(`${validCount} | x${almostRate.toFixed(1)}`, this.matrix.cols * 5, 0, { className: "stat-label" }));
+        group.appendChild(new Svg.Text(statsToString(this.stats), this.matrix.cols * 5, 0, { className: "stat-label" }));
         return frame.domEl;
     }
+}
+
+function statsToString(stats: SolutionStats) {
+    let validCount = stats.validCount / ROTATION_R_COUNT;
+    let almostRate = stats.almostValidCount / stats.validCount;
+    return `${validCount} x${almostRate.toFixed(1)}`;
 }
 
 enum GenMode {
@@ -702,7 +712,8 @@ function* derive(input: GenInput, sol: WorkerSolution): Generator<SerializedSolu
         }
     }
     if (input.mode == GenMode.Genetic) {
-        sol.randomize();
+        sol.randomize(input.validCountCutoff);
+        yield sol.serialize();
         for (let _ of sol.evolve()) {
             yield sol.serialize();
         }
@@ -713,10 +724,12 @@ function* generate(input: GenInput): Generator<GenOutput> {
     let timeWindowCount = 0;
     let iterCount = 0;
 
+    input.validCountCutoff = input.validCountCutoff * ROTATION_R_COUNT;
+
     let timeWindowStart = Date.now();
     let swipeIndex = 0;
 
-    let sol = new WorkerSolution(input.rows, input.cols, input.links, input.validCountCutoff * 8);
+    let sol = new WorkerSolution(input.rows, input.cols, input.links, input.validCountCutoff);
     let swipeLength = null;
     if (input.mode == GenMode.BruteForce) {
         swipeLength = sol.swipeLength();
@@ -750,4 +763,4 @@ function* generate(input: GenInput): Generator<GenOutput> {
     assert(swipeLength == null || iterCount == swipeLength, "Wrong swipe length", swipeLength);
 }
 
-export { generate, Solution, GenMode, GenInput, GenOutput }
+export { generate, Solution, GenMode, GenInput, GenOutput, statsToString }
