@@ -40,14 +40,21 @@ interface FragmentIndex {
 }
 
 function fragmentNext(fragment: number, maxBound: number, offset: number): number {
-    let normalizedOffset = offset % (maxBound * 2);
-    let next = fragment + normalizedOffset;
-    if (next == 0) {
-        return 1;
-    } else if (next > maxBound) {
-        return next - (2 * maxBound + 1);
+    assert(fragment != 0, "invalid fragment");
+    if (fragment < 0) {
+        // [-maxBound ; -1] -> [0 ; maxBound - 1]
+        fragment += maxBound;
     } else {
-        return next;
+        // [1 ; maxBound] -> [maxBound ; 2 * maxBound - 1]
+        fragment += maxBound - 1;
+    }
+    fragment = (fragment + offset) % (maxBound * 2);
+    if (fragment < maxBound) {
+        // [0 ; maxBound - 1] -> [-maxBound ; -1]
+        return fragment - maxBound;
+    } else {
+        // [maxBound ; 2 * maxBound - 1] -> [1 ; maxBound]
+        return fragment - maxBound + 1;
     }
 }
 
@@ -99,6 +106,10 @@ interface MatrixEvolution {
     idx: number,
     value: number,
     initial: number
+}
+
+interface MatrixEvolutionState {
+    array: number[];
 }
 
 class FragmentMatrix {
@@ -224,9 +235,26 @@ class FragmentMatrix {
         }
     }
 
+    tilt(maxBound: number) {
+        let tiltCount = 0;
+        for (let idx = 0; idx < this.array.length; idx++) {
+            if (Maths.getRandomInt(0, 4) == 0) {
+                tiltCount++;
+                let x = Maths.getRandomInt(0, maxBound * 2);
+                if (x < maxBound) {
+                    // -maxBound .. -1
+                    this.array[idx] = -1 * maxBound + x;
+                } else {
+                    // 1 .. maxBound
+                    this.array[idx] = x - maxBound + 1;
+                }
+            }
+        }
+        console.log("Tilted", tiltCount, "over", this.array.length);
+    }
+
     * localEvolutions(maxBound: number): Generator<MatrixEvolution> {
         for (let off = 1; off < (maxBound * 2); off++) {
-            console.log("evolution offset", off);
             for (let idx = 1; idx < this.array.length; idx++) {
                 let initial = this.array[idx];
                 this.array[idx] = fragmentNext(this.array[idx], maxBound, off);
@@ -238,6 +266,17 @@ class FragmentMatrix {
 
     selectEvolution(evolution: MatrixEvolution) {
         this.array[evolution.idx] = evolution.value;
+    }
+
+    getState(): MatrixEvolutionState {
+        return { array: [...this.array] };
+    }
+
+    setState(state: MatrixEvolutionState) {
+        assert(this.array.length == state.array.length, "invalid state", state, this.array);
+        for (let idx = 0; idx < this.array.length; idx++) {
+            this.array[idx] = state.array[idx]
+        };
     }
 
     // internal
@@ -576,36 +615,51 @@ class WorkerSolution {
     }
 
     * evolve(): Generator<null> {
-        // TODO
-        // - tilt to escape local minima
-        // - auto randomize and retry
-        let trInput: TrComputeInput = { maxValidCount: Infinity };
-        let bestOutput: TrComputeOutput | null = null;
+        function isBest(prev: TrComputeOutput | null, next: TrComputeOutput): boolean {
+            return prev == null
+                || (next.validCount < prev.validCount)
+                || (next.validCount == prev.validCount && next.almostValidCount > prev.almostValidCount);
+        }
+
+        let ultraBestOutput: TrComputeOutput | null = null;
+        let ultraBestState: MatrixEvolutionState = this.matrix.getState();
+        let trInput: TrComputeInput = { maxValidCount: this.stats.validCount };
+
         while (true) {
-            let next = null;
-            for (let evolution of this.matrix.localEvolutions(this.maxBound)) {
-                let output = this.trCompute(trInput);
-                if (!output.aborted) {
-                    console.log("evolve", evolution, "->", output);
-                    if (bestOutput == null
-                        || (output.validCount < bestOutput.validCount)
-                        || (output.validCount == bestOutput.validCount && output.almostValidCount > bestOutput.almostValidCount)) {
-                        next = evolution;
-                        bestOutput = output;
-                        trInput.maxValidCount = bestOutput.validCount;
-                        break;
+            let bestOutput: TrComputeOutput | null = null;
+            while (true) {
+                let next = null;
+                for (let evolution of this.matrix.localEvolutions(this.maxBound)) {
+                    let output = this.trCompute(trInput);
+                    if (!output.aborted) {
+                        if (isBest(bestOutput, output)) {
+                            next = evolution;
+                            bestOutput = output;
+                            trInput.maxValidCount = bestOutput.validCount;
+                            break;
+                        }
                     }
                 }
+                if (next != null && bestOutput != null) {
+                    this.matrix.selectEvolution(next);
+                    this.stats = bestOutput;
+                    if (isBest(ultraBestOutput, bestOutput)) {
+                        console.log("Local step (new best)", statsToString(bestOutput), bestOutput);
+                        ultraBestState = this.matrix.getState();
+                        ultraBestOutput = bestOutput;
+                        yield null;
+                    } else {
+                        console.log("Local step", statsToString(bestOutput), bestOutput);
+                    }
+                } else {
+                    break;
+                }
             }
-            if (next) {
-                console.log("Evolution step", bestOutput);
-                this.matrix.selectEvolution(next);
-                this.stats = bestOutput!;
-                yield null;
-            } else {
-                console.log("Local minima reached");
-                return;
-            }
+
+            console.log("Tilt");
+            this.matrix.setState(ultraBestState);
+            this.matrix.tilt(this.maxBound);
+            trInput.maxValidCount = Infinity;
         }
     }
 
@@ -701,44 +755,17 @@ interface GenOutput {
     iterCount: number,
 }
 
-function* derive(input: GenInput, sol: WorkerSolution): Generator<SerializedSolution | null> {
-    if (input.mode == GenMode.BruteForce) {
-        for (let _ of sol.swipe()) {
-            if (sol.isNewBest(input.targetUnique)) {
-                yield sol.serialize();
-            } else {
-                yield null;
-            }
-        }
-    }
-    if (input.mode == GenMode.Genetic) {
-        sol.randomize(input.validCountCutoff);
-        yield sol.serialize();
-        for (let _ of sol.evolve()) {
-            yield sol.serialize();
-        }
-    }
-}
-
-function* generate(input: GenInput): Generator<GenOutput> {
+function* genBruteForce(input: GenInput, sol: WorkerSolution): Generator<GenOutput> {
     let timeWindowCount = 0;
     let iterCount = 0;
-
-    input.validCountCutoff = input.validCountCutoff * ROTATION_R_COUNT;
-
-    let timeWindowStart = Date.now();
     let swipeIndex = 0;
+    let timeWindowStart = Date.now();
+    let swipeLength = sol.swipeLength();
 
-    let sol = new WorkerSolution(input.rows, input.cols, input.links, input.validCountCutoff);
-    let swipeLength = null;
-    if (input.mode == GenMode.BruteForce) {
-        swipeLength = sol.swipeLength();
-    }
-
-    for (let derived of derive(input, sol)) {
-        if (derived) {
+    for (let _ of sol.swipe()) {
+        if (sol.isNewBest(input.targetUnique)) {
             yield {
-                sol: derived,
+                sol: sol.serialize(),
                 iterCount: iterCount
             };
         }
@@ -761,6 +788,36 @@ function* generate(input: GenInput): Generator<GenOutput> {
 
     console.log("Total try", iterCount);
     assert(swipeLength == null || iterCount == swipeLength, "Wrong swipe length", swipeLength);
+}
+
+function* genGenetic(input: GenInput, sol: WorkerSolution): Generator<GenOutput> {
+    sol.randomize(input.validCountCutoff);
+    yield {
+        sol: sol.serialize(),
+        iterCount: 0
+    };
+    for (let _ of sol.evolve()) {
+        yield {
+            sol: sol.serialize(),
+            iterCount: 0
+        };
+    }
+}
+
+function* generate(input: GenInput): Generator<GenOutput> {
+    input.validCountCutoff = input.validCountCutoff * ROTATION_R_COUNT;
+
+    let sol = new WorkerSolution(input.rows, input.cols, input.links, input.validCountCutoff);
+    if (input.mode == GenMode.BruteForce) {
+        for (let derived of genBruteForce(input, sol)) {
+            yield derived;
+        }
+    }
+    if (input.mode == GenMode.Genetic) {
+        for (let derived of genGenetic(input, sol)) {
+            yield derived;
+        }
+    }
 }
 
 export { generate, Solution, GenMode, GenInput, GenOutput, statsToString }

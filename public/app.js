@@ -93,6 +93,7 @@ async function execWithFormData(formData, output) {
     info.classList.add("info");
     output.appendChild(info);
     info.innerText = `running ...`;
+    document.title = `${BASE_TITLE}`;
     if (genMode == Puzzle.GenMode.BruteForce) {
         setProgressPercent(0);
     }
@@ -144,9 +145,11 @@ async function execWithFormData(formData, output) {
             reject("worker error");
         };
     }).then((state) => {
+        document.title = "done | " + document.title;
         info.innerText = `${count} solutions, ${state}`;
         cancelBtn.disabled = true;
     }).catch(() => {
+        document.title = "done | " + document.title;
         info.innerText = `${count} solutions, error`;
         cancelBtn.disabled = true;
     });
