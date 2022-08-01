@@ -240,14 +240,8 @@ class FragmentMatrix {
         for (let idx = 0; idx < this.array.length; idx++) {
             if (Maths.getRandomInt(0, 4) == 0) {
                 tiltCount++;
-                let x = Maths.getRandomInt(0, maxBound * 2);
-                if (x < maxBound) {
-                    // -maxBound .. -1
-                    this.array[idx] = -1 * maxBound + x;
-                } else {
-                    // 1 .. maxBound
-                    this.array[idx] = x - maxBound + 1;
-                }
+                let offset = Maths.getRandomInt(1, maxBound * 2);
+                this.array[idx] = fragmentNext(this.array[idx], maxBound, offset);
             }
         }
         console.log("Tilted", tiltCount, "over", this.array.length);
@@ -435,11 +429,11 @@ class Transform {
             // add one piece amongst remaining
             for (let idx = 0; idx < remaining.length; idx++) {
                 let subPieces = [...remaining];
-                let selected = subPieces.splice(idx, 1);
+                let selected = subPieces.splice(idx, 1)[0];
 
                 // rotate it
                 for (let r = 0; r < ROTATION_R_COUNT; r++) {
-                    this.lookup.setTransform(selected[0], pos, r);
+                    this.lookup.setTransform(selected, pos, r);
 
                     // check new piece compatibility
                     if (left != null && left != this.lookup.at(pos, Direction.Left)) {
@@ -599,31 +593,34 @@ class WorkerSolution {
         }
     }
 
-    // generic
+    // genetic
 
-    randomize(initialCutoff: number) {
+    randomize(initialCutoff: number): TrComputeOutput {
         let trInput: TrComputeInput = { maxValidCount: initialCutoff };
         while (true) {
             this.matrix.randomize(this.maxBound);
             let output = this.trCompute(trInput);
             if (!output.aborted) {
-                return;
+                return output;
             } else {
                 console.log("Randomization retry");
             }
         }
     }
 
-    * evolve(): Generator<null> {
+    * evolve(initialCutoff: number): Generator<null> {
         function isBest(prev: TrComputeOutput | null, next: TrComputeOutput): boolean {
             return prev == null
                 || (next.validCount < prev.validCount)
                 || (next.validCount == prev.validCount && next.almostValidCount > prev.almostValidCount);
         }
 
+        let initialOutput = this.randomize(initialCutoff);
+        yield null;
+
         let ultraBestOutput: TrComputeOutput | null = null;
         let ultraBestState: MatrixEvolutionState = this.matrix.getState();
-        let trInput: TrComputeInput = { maxValidCount: this.stats.validCount };
+        let trInput: TrComputeInput = { maxValidCount: initialOutput.validCount };
 
         while (true) {
             let bestOutput: TrComputeOutput | null = null;
@@ -636,7 +633,6 @@ class WorkerSolution {
                             next = evolution;
                             bestOutput = output;
                             trInput.maxValidCount = bestOutput.validCount;
-                            break;
                         }
                     }
                 }
@@ -659,7 +655,7 @@ class WorkerSolution {
             console.log("Tilt");
             this.matrix.setState(ultraBestState);
             this.matrix.tilt(this.maxBound);
-            trInput.maxValidCount = Infinity;
+            trInput.maxValidCount = initialCutoff;
         }
     }
 
@@ -791,12 +787,7 @@ function* genBruteForce(input: GenInput, sol: WorkerSolution): Generator<GenOutp
 }
 
 function* genGenetic(input: GenInput, sol: WorkerSolution): Generator<GenOutput> {
-    sol.randomize(input.validCountCutoff);
-    yield {
-        sol: sol.serialize(),
-        iterCount: 0
-    };
-    for (let _ of sol.evolve()) {
+    for (let _ of sol.evolve(input.validCountCutoff)) {
         yield {
             sol: sol.serialize(),
             iterCount: 0
