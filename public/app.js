@@ -33,10 +33,10 @@ async function execWithFormData(formData, output, info) {
             infoSolution = solution;
         }
         if (isRunning) {
-            document.title = `⌛ ${infoSolution} | ${BASE_TITLE}`;
+            document.title = `${BASE_TITLE} | ⌛ ${infoSolution}`;
         }
         else {
-            document.title = `${infoSolution} | ${BASE_TITLE}`;
+            document.title = `${BASE_TITLE} | ${infoSolution}`;
         }
     }
     function showInfo(infoState) {

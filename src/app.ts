@@ -42,9 +42,9 @@ async function execWithFormData(formData: FormData, output: Element, info: HTMLE
             infoSolution = solution;
         }
         if (isRunning) {
-            document.title = `⌛ ${infoSolution} | ${BASE_TITLE}`;
+            document.title = `${BASE_TITLE} | ⌛ ${infoSolution}`;
         } else {
-            document.title = `${infoSolution} | ${BASE_TITLE}`;
+            document.title = `${BASE_TITLE} | ${infoSolution}`;
         }
     }
 
