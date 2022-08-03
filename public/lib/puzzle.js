@@ -59,12 +59,12 @@ function matrixIncrement(matrix, maxBound) {
 function matrixIncrementLength(matrix, maxBound) {
     return Math.pow((maxBound * 2), (matrix.length - 1));
 }
-const ROTATION_R_COUNT = DIRECTION_COUNT * 2;
+const SYMMETRY_COUNT = DIRECTION_COUNT * 2;
 ///      non flip | flip
 /// r: [0, 1, 2, 3, 4, 5, 6, 7]
 function rotate(dir, r) {
     assert(dir >= 0 && dir < DIRECTION_COUNT, "invalid direction", dir);
-    assert(r >= 0 && r < ROTATION_R_COUNT, "invalid rotation", r);
+    assert(r >= 0 && r < SYMMETRY_COUNT, "invalid rotation", r);
     let rotated = (dir + r) % DIRECTION_COUNT;
     if (r < DIRECTION_COUNT) {
         return rotated;
@@ -276,7 +276,7 @@ class Transform {
         };
         let output = this.trCompute(input);
         if (!output.aborted) {
-            assert(output.validCount % ROTATION_R_COUNT == 0, "unexpected output", output);
+            assert(output.validCount % SYMMETRY_COUNT == 0, "unexpected output", output);
             if (output.validCount < this.maxCount) {
                 console.debug("New max valid count", output);
                 this.maxCount = output.validCount;
@@ -303,16 +303,17 @@ class Transform {
             validCount: 0,
             almostValidCount: 0
         };
-        this.recConstruct({ row: 0, col: 0 }, pieces, input, output);
+        this.recConstruct({ row: 0, col: 0 }, pieces, input, output, true);
         return output;
     }
     // internal
     // fixedCount: [0; rows * cols] number of pieces with defined
     // remaining: set of pieces not placed yet
     // return true when at least one solution have been found
-    recConstruct(pos, remaining, input, output) {
+    recConstruct(pos, remaining, input, output, first) {
         if (remaining.length == 0) {
-            output.validCount++;
+            // add SYMMETRY_COUNT to compensate for the first piece rotations skipped
+            output.validCount += SYMMETRY_COUNT;
             return true;
         }
         else {
@@ -330,7 +331,9 @@ class Transform {
                 let subPieces = [...remaining];
                 let selected = subPieces.splice(idx, 1)[0];
                 // rotate it
-                for (let r = 0; r < ROTATION_R_COUNT; r++) {
+                // do not rotate first piece to gain some time by skipping symmetries
+                let rCount = first ? 1 : SYMMETRY_COUNT;
+                for (let r = 0; r < rCount; r++) {
                     this.lookup.setTransform(selected, pos, r);
                     // check new piece compatibility
                     if (left != null && left != this.lookup.at(pos, Direction.Left)) {
@@ -347,7 +350,7 @@ class Transform {
                             subPos.col = 0;
                             subPos.row++;
                         }
-                        hasFound = this.recConstruct(subPos, subPieces, input, output) || hasFound;
+                        hasFound = this.recConstruct(subPos, subPieces, input, output, false) || hasFound;
                         if (output.validCount > input.maxValidCount) {
                             output.aborted = true;
                             return false;
@@ -357,7 +360,8 @@ class Transform {
             }
             // no valid piece found for the last one
             if (!hasFound && remaining.length == 1) {
-                output.almostValidCount++;
+                // add SYMMETRY_COUNT to compensate for the first piece rotations skipped
+                output.almostValidCount += SYMMETRY_COUNT;
             }
             return hasFound;
         }
@@ -503,6 +507,7 @@ class WorkerSolution {
                             next = evolution;
                             bestOutput = output;
                             trInput.maxValidCount = bestOutput.validCount;
+                            break;
                         }
                     }
                 }
@@ -581,7 +586,7 @@ class Solution {
     }
 }
 function statsToString(stats) {
-    let validCount = stats.validCount / ROTATION_R_COUNT;
+    let validCount = stats.validCount / SYMMETRY_COUNT;
     let almostRate = stats.almostValidCount / stats.validCount;
     return `${validCount} x${almostRate.toFixed(1)}`;
 }
@@ -629,7 +634,7 @@ function* genGenetic(input, sol) {
     }
 }
 function* generate(input) {
-    input.validCountCutoff = input.validCountCutoff * ROTATION_R_COUNT;
+    input.validCountCutoff = input.validCountCutoff * SYMMETRY_COUNT;
     let sol = new WorkerSolution(input.rows, input.cols, input.links, input.validCountCutoff);
     if (input.mode == GenMode.BruteForce) {
         for (let derived of genBruteForce(input, sol)) {
