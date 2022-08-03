@@ -162,7 +162,8 @@ class FragmentMatrix {
     }
     // generic
     randomize(maxBound) {
-        for (let idx = 0; idx < this.array.length; idx++) {
+        this.array[0] = -1 * maxBound;
+        for (let idx = 1; idx < this.array.length; idx++) {
             let x = Maths.getRandomInt(0, maxBound * 2);
             if (x < maxBound) {
                 // -maxBound .. -1
@@ -187,7 +188,7 @@ class FragmentMatrix {
     }
     *localEvolutions(maxBound) {
         for (let off = 1; off < (maxBound * 2); off++) {
-            for (let idx = 1; idx < this.array.length; idx++) {
+            for (let idx = 0; idx < this.array.length; idx++) {
                 let initial = this.array[idx];
                 this.array[idx] = fragmentNext(this.array[idx], maxBound, off);
                 yield { idx: idx, value: this.array[idx], initial: initial };
@@ -318,6 +319,8 @@ class Transform {
         //     console.error("Original ", output2);
         //     console.error("Optimized", output);
         //     throw new Error("err");
+        // } else {
+        //     console.log("optimized algo runtime check ok");
         // }
         return output;
     }
@@ -328,7 +331,7 @@ class Transform {
     recConstruct(pos, remaining, input, output) {
         let useFlipSymmetry = this.matrix.rows == this.matrix.cols;
         if (remaining.length == 0) {
-            // add SYMMETRY_COUNT to compensate for the first piece rotations skipped
+            // add 2 to compensate for the first piece rotations skipped
             output.validCount += useFlipSymmetry ? 2 : 1;
             return true;
         }
@@ -376,7 +379,7 @@ class Transform {
             }
             // no valid piece found for the last one
             if (!hasFound && remaining.length == 1) {
-                // add SYMMETRY_COUNT to compensate for the first piece rotations skipped
+                // add 2 to compensate for the first piece rotations skipped
                 output.almostValidCount += useFlipSymmetry ? 2 : 1;
             }
             return hasFound;

@@ -26,6 +26,7 @@ async function execWithFormData(formData, output, info) {
     let progressBar = checkNonNull(document.getElementById("gen-progress"));
     let progressLabel = checkNonNull(document.getElementById("gen-progress-label"));
     let remTimeLabel = checkNonNull(document.getElementById("gen-rem-time-label"));
+    // info
     let infoSolution = "";
     function showTitle(isRunning, solution) {
         if (solution) {
@@ -41,6 +42,7 @@ async function execWithFormData(formData, output, info) {
     function showInfo(infoState) {
         info.innerText = infoState;
     }
+    // progress
     let launchTimeInMs = 0;
     function setProgressPercent(progress) {
         let remTimeInMs = 0;
@@ -67,6 +69,7 @@ async function execWithFormData(formData, output, info) {
         progressLabel.innerText = `-`;
         remTimeLabel.innerText = `-`;
     }
+    // form utils
     function getStrProp(name) {
         if (!formData.has(name)) {
             throw new Error(`form property ${name} missing`);
@@ -86,6 +89,7 @@ async function execWithFormData(formData, output, info) {
         }
         return Number(prop);
     }
+    // main
     let rows = getIntProp("row_count");
     let cols = getIntProp("col_count");
     let links = getIntProp("link_count");

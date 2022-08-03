@@ -33,7 +33,10 @@ async function execWithFormData(formData: FormData, output: Element, info: HTMLE
     let progressLabel = checkNonNull(document.getElementById("gen-progress-label"));
     let remTimeLabel = checkNonNull(document.getElementById("gen-rem-time-label"));
 
+    // info
+
     let infoSolution = "";
+
     function showTitle(isRunning: boolean, solution: string | null) {
         if (solution) {
             infoSolution = solution;
@@ -44,11 +47,15 @@ async function execWithFormData(formData: FormData, output: Element, info: HTMLE
             document.title = `${infoSolution} | ${BASE_TITLE}`;
         }
     }
+
     function showInfo(infoState: string) {
         info.innerText = infoState;
     }
 
+    // progress
+
     let launchTimeInMs = 0;
+
     function setProgressPercent(progress: number) {
         let remTimeInMs = 0;
         if (progress == 0) {
@@ -63,6 +70,7 @@ async function execWithFormData(formData: FormData, output: Element, info: HTMLE
         progressLabel.innerText = `${progress.toFixed(1)} %`;
         remTimeLabel.innerText = `${remTimeInMin.toFixed(1)} min left`;
     }
+
     function setProgress(isDone: boolean) {
         if (!isDone) {
             progressBar.removeAttribute("value");
@@ -72,6 +80,8 @@ async function execWithFormData(formData: FormData, output: Element, info: HTMLE
         progressLabel.innerText = `-`;
         remTimeLabel.innerText = `-`;
     }
+
+    // form utils
 
     function getStrProp(name: string): string {
         if (!formData.has(name)) {
@@ -93,6 +103,8 @@ async function execWithFormData(formData: FormData, output: Element, info: HTMLE
         }
         return Number(prop);
     }
+
+    // main
 
     let rows = getIntProp("row_count");
     let cols = getIntProp("col_count");
