@@ -7,6 +7,11 @@ function checkNonNull(element) {
     }
     return element;
 }
+function rmChildren(element) {
+    while (element.firstChild != null) {
+        element.firstChild.remove();
+    }
+}
 function checkBtn(element) {
     if (element == null) {
         throw new Error("missing element");
@@ -16,11 +21,26 @@ function checkBtn(element) {
     }
     return element;
 }
-async function execWithFormData(formData, output) {
+async function execWithFormData(formData, output, info) {
     let cancelBtn = checkBtn(document.getElementById("btn-cancel"));
     let progressBar = checkNonNull(document.getElementById("gen-progress"));
     let progressLabel = checkNonNull(document.getElementById("gen-progress-label"));
     let remTimeLabel = checkNonNull(document.getElementById("gen-rem-time-label"));
+    let infoSolution = "";
+    function showTitle(isRunning, solution) {
+        if (solution) {
+            infoSolution = solution;
+        }
+        if (isRunning) {
+            document.title = `⌛ ${infoSolution} | ${BASE_TITLE}`;
+        }
+        else {
+            document.title = `${infoSolution} | ${BASE_TITLE}`;
+        }
+    }
+    function showInfo(infoState) {
+        info.innerText = infoState;
+    }
     let launchTimeInMs = 0;
     function setProgressPercent(progress) {
         let remTimeInMs = 0;
@@ -85,15 +105,10 @@ async function execWithFormData(formData, output) {
     else {
         throw new Error(`mode value invalid: ${mode}`);
     }
-    while (output.firstChild != null) {
-        output.firstChild.remove();
-    }
+    rmChildren(output);
     let count = 0;
-    let info = document.createElement("div");
-    info.classList.add("info");
-    output.appendChild(info);
-    info.innerText = `running ...`;
-    document.title = `${BASE_TITLE}`;
+    showTitle(true, "");
+    showInfo("Running ...");
     if (genMode == Puzzle.GenMode.BruteForce) {
         setProgressPercent(0);
     }
@@ -119,15 +134,14 @@ async function execWithFormData(formData, output) {
                     setProgress(true);
                 }
                 worker.terminate();
-                resolve("done");
+                resolve("success");
             }
             else {
                 if (data.sol) {
                     let sol = Puzzle.Solution.deserialize(data.sol);
-                    output.insertBefore(sol.render(), info.nextSibling);
+                    output.insertBefore(sol.render(), output.firstChild);
                     count++;
-                    info.innerText = `${count} solutions ...`;
-                    document.title = `${Puzzle.statsToString(sol.stats)} | ${BASE_TITLE}`;
+                    showTitle(true, Puzzle.statsToString(sol.stats));
                     if (count > 100) {
                         output.lastChild?.remove();
                     }
@@ -138,6 +152,9 @@ async function execWithFormData(formData, output) {
                 if (data.rate) {
                     console.log("Rate", data.rate, "/ sec");
                 }
+                if (data.tiltCount) {
+                    showInfo(`Running ... ${data.tiltCount} tilts`);
+                }
             }
         };
         worker.onerror = (event) => {
@@ -145,12 +162,12 @@ async function execWithFormData(formData, output) {
             reject("worker error");
         };
     }).then((state) => {
-        document.title = "done | " + document.title;
-        info.innerText = `${count} solutions, ${state}`;
+        showTitle(false, null);
+        showInfo(`Done, ${state}`);
         cancelBtn.disabled = true;
     }).catch(() => {
-        document.title = "done | " + document.title;
-        info.innerText = `${count} solutions, error`;
+        showTitle(false, null);
+        showInfo("Error");
         cancelBtn.disabled = true;
     });
     cancelBtn.disabled = false;
@@ -171,22 +188,22 @@ async function formSubmit(el, runBtn) {
     try {
         runBtn.disabled = true;
         let output = checkNonNull(document.querySelector(".gen-output"));
-        while (output.firstChild != null) {
-            output.firstChild.remove();
-        }
+        rmChildren(output);
+        let info = checkNonNull(document.querySelector(".gen-info"));
+        rmChildren(info);
         if (!(el instanceof HTMLFormElement)) {
             throw new Error(`element is not a form ${el}`);
         }
         let data = new FormData(el);
-        for (let child of el.querySelectorAll("button, input")) {
-            if (child instanceof HTMLInputElement) {
+        for (let child of el.querySelectorAll("button, input, select")) {
+            if (child instanceof HTMLInputElement || child instanceof HTMLSelectElement) {
                 if (!child.disabled) {
                     toEnable.add(child);
                     child.disabled = true;
                 }
             }
         }
-        await execWithFormData(data, output);
+        await execWithFormData(data, output, info);
         console.info("done");
     }
     catch (error) {

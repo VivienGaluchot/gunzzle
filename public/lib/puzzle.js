@@ -60,8 +60,8 @@ function matrixIncrementLength(matrix, maxBound) {
     return Math.pow((maxBound * 2), (matrix.length - 1));
 }
 const SYMMETRY_COUNT = DIRECTION_COUNT * 2;
-///      non flip | flip
-/// r: [0, 1, 2, 3, 4, 5, 6, 7]
+///        non flip | flip
+/// r: [0, 1, 2, 3, | 4, 5, 6, 7]
 function rotate(dir, r) {
     assert(dir >= 0 && dir < DIRECTION_COUNT, "invalid direction", dir);
     assert(r >= 0 && r < SYMMETRY_COUNT, "invalid rotation", r);
@@ -303,17 +303,33 @@ class Transform {
             validCount: 0,
             almostValidCount: 0
         };
-        this.recConstruct({ row: 0, col: 0 }, pieces, input, output, true);
+        this.recConstruct({ row: 0, col: 0 }, pieces, input, output);
+        // let pieces2: Pos[] = [];
+        // for (let pos of this.matrix.everyPos()) {
+        //     pieces2.push(pos);
+        // }
+        // let output2 = {
+        //     aborted: false,
+        //     validCount: 0,
+        //     almostValidCount: 0
+        // };
+        // this.recConstructNonOptimized({ row: 0, col: 0 }, pieces2, input, output2);
+        // if (output.aborted != output2.aborted || (!output.aborted && (output.validCount != output2.validCount || output.almostValidCount != output2.almostValidCount))) {
+        //     console.error("Original ", output2);
+        //     console.error("Optimized", output);
+        //     throw new Error("err");
+        // }
         return output;
     }
     // internal
     // fixedCount: [0; rows * cols] number of pieces with defined
     // remaining: set of pieces not placed yet
     // return true when at least one solution have been found
-    recConstruct(pos, remaining, input, output, first) {
+    recConstruct(pos, remaining, input, output) {
+        let useFlipSymmetry = this.matrix.rows == this.matrix.cols;
         if (remaining.length == 0) {
             // add SYMMETRY_COUNT to compensate for the first piece rotations skipped
-            output.validCount += SYMMETRY_COUNT;
+            output.validCount += useFlipSymmetry ? 2 : 1;
             return true;
         }
         else {
@@ -332,7 +348,7 @@ class Transform {
                 let selected = subPieces.splice(idx, 1)[0];
                 // rotate it
                 // do not rotate first piece to gain some time by skipping symmetries
-                let rCount = first ? 1 : SYMMETRY_COUNT;
+                let rCount = (useFlipSymmetry && pos.row == 0 && pos.col == 0) ? 4 : SYMMETRY_COUNT;
                 for (let r = 0; r < rCount; r++) {
                     this.lookup.setTransform(selected, pos, r);
                     // check new piece compatibility
@@ -350,7 +366,7 @@ class Transform {
                             subPos.col = 0;
                             subPos.row++;
                         }
-                        hasFound = this.recConstruct(subPos, subPieces, input, output, false) || hasFound;
+                        hasFound = this.recConstruct(subPos, subPieces, input, output) || hasFound;
                         if (output.validCount > input.maxValidCount) {
                             output.aborted = true;
                             return false;
@@ -361,7 +377,59 @@ class Transform {
             // no valid piece found for the last one
             if (!hasFound && remaining.length == 1) {
                 // add SYMMETRY_COUNT to compensate for the first piece rotations skipped
-                output.almostValidCount += SYMMETRY_COUNT;
+                output.almostValidCount += useFlipSymmetry ? 2 : 1;
+            }
+            return hasFound;
+        }
+    }
+    recConstructNonOptimized(pos, remaining, input, output) {
+        if (remaining.length == 0) {
+            output.validCount++;
+            return true;
+        }
+        else {
+            let left = null;
+            if (pos.col > 0) {
+                left = -1 * this.lookup.at({ row: pos.row, col: pos.col - 1 }, Direction.Right);
+            }
+            let top = null;
+            if (pos.row > 0) {
+                top = -1 * this.lookup.at({ row: pos.row - 1, col: pos.col }, Direction.Bottom);
+            }
+            let hasFound = false;
+            // add one piece amongst remaining
+            for (let idx = 0; idx < remaining.length; idx++) {
+                let subPieces = [...remaining];
+                let selected = subPieces.splice(idx, 1)[0];
+                // rotate it
+                for (let r = 0; r < SYMMETRY_COUNT; r++) {
+                    this.lookup.setTransform(selected, pos, r);
+                    // check new piece compatibility
+                    if (left != null && left != this.lookup.at(pos, Direction.Left)) {
+                        // not compatible
+                    }
+                    else if (top != null && top != this.lookup.at(pos, Direction.Top)) {
+                        // not compatible
+                    }
+                    else {
+                        // continue with the next piece
+                        let subPos = { ...pos };
+                        subPos.col++;
+                        if (subPos.col == this.matrix.cols) {
+                            subPos.col = 0;
+                            subPos.row++;
+                        }
+                        hasFound = this.recConstructNonOptimized(subPos, subPieces, input, output) || hasFound;
+                        if (output.validCount > input.maxValidCount) {
+                            output.aborted = true;
+                            return false;
+                        }
+                    }
+                }
+            }
+            // no valid piece found for the last one
+            if (!hasFound && remaining.length == 1) {
+                output.almostValidCount++;
             }
             return hasFound;
         }
@@ -492,7 +560,7 @@ class WorkerSolution {
                 || (next.validCount == prev.validCount && next.almostValidCount > prev.almostValidCount);
         }
         let initialOutput = this.randomize(initialCutoff);
-        yield null;
+        yield { isTilt: false, isNewSol: true };
         let ultraBestOutput = null;
         let ultraBestState = this.matrix.getState();
         let trInput = { maxValidCount: initialOutput.validCount };
@@ -518,7 +586,7 @@ class WorkerSolution {
                         console.log("Local step (new best)", statsToString(bestOutput), bestOutput);
                         ultraBestState = this.matrix.getState();
                         ultraBestOutput = bestOutput;
-                        yield null;
+                        yield { isTilt: false, isNewSol: true };
                     }
                     else {
                         console.log("Local step", statsToString(bestOutput), bestOutput);
@@ -532,6 +600,7 @@ class WorkerSolution {
             this.matrix.setState(ultraBestState);
             this.matrix.tilt(this.maxBound);
             trInput.maxValidCount = initialCutoff;
+            yield { isTilt: true, isNewSol: false };
         }
     }
     // wrapper
@@ -626,11 +695,15 @@ function* genBruteForce(input, sol) {
     assert(swipeLength == null || iterCount == swipeLength, "Wrong swipe length", swipeLength);
 }
 function* genGenetic(input, sol) {
-    for (let _ of sol.evolve(input.validCountCutoff)) {
-        yield {
-            sol: sol.serialize(),
-            iterCount: 0
-        };
+    let tiltCount = 0;
+    for (let { isTilt, isNewSol } of sol.evolve(input.validCountCutoff)) {
+        if (isTilt) {
+            tiltCount++;
+            yield { tiltCount: tiltCount };
+        }
+        if (isNewSol) {
+            yield { sol: sol.serialize() };
+        }
     }
 }
 function* generate(input) {
