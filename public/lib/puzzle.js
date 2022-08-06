@@ -478,6 +478,13 @@ class WorkerSolution {
             stats: this.stats,
         };
     }
+    static deserialize(obj) {
+        let instance = new WorkerSolution(obj.rows, obj.cols, obj.links);
+        for (let id = 0; id < instance.matrix.array.length; id++) {
+            instance.matrix.array[id] = obj.array[id];
+        }
+        return instance;
+    }
     // puzzle logic
     isNewBest(targetUnique) {
         // Heuristics to reduce the number of possibility to find
@@ -577,15 +584,13 @@ class WorkerSolution {
             }
         }
     }
-    *evolve(initialCutoff) {
+    *evolve(initialOutput, initialCutoff) {
         function isBest(prev, next) {
             return prev == null
                 || (next.validCount < prev.validCount)
                 || (next.validCount == prev.validCount && next.almostValidCount > prev.almostValidCount);
         }
-        let initialOutput = this.randomize(initialCutoff);
-        yield { isTilt: false, isNewSol: true };
-        let ultraBestOutput = null;
+        let ultraBestOutput = initialOutput;
         let ultraBestState = this.matrix.getState();
         let trInput = { maxValidCount: initialOutput.validCount };
         while (true) {
@@ -640,6 +645,15 @@ class Solution {
     constructor(rows, cols, links, stats) {
         this.matrix = new FragmentMatrix(rows, cols, links, 0);
         this.stats = stats;
+    }
+    serialize() {
+        return {
+            rows: this.matrix.rows,
+            cols: this.matrix.cols,
+            links: this.matrix.links,
+            array: this.matrix.array,
+            stats: this.stats,
+        };
     }
     static deserialize(obj) {
         let instance = new Solution(obj.rows, obj.cols, obj.links, obj.stats);
@@ -726,7 +740,8 @@ var GenMode;
     GenMode[GenMode["BruteForce"] = 0] = "BruteForce";
     GenMode[GenMode["Genetic"] = 1] = "Genetic";
 })(GenMode || (GenMode = {}));
-function* genBruteForce(input, sol) {
+function* genBruteForce(input) {
+    let sol = new WorkerSolution(input.rows, input.cols, input.links);
     let timeWindowCount = 0;
     let iterCount = 0;
     let swipeIndex = 0;
@@ -757,9 +772,20 @@ function* genBruteForce(input, sol) {
     console.log("Total try", iterCount);
     assert(swipeLength == null || iterCount == swipeLength, "Wrong swipe length", swipeLength);
 }
-function* genGenetic(input, sol) {
+function* genGenetic(input) {
+    let sol;
+    let firstOutput;
+    if (input.startFrom) {
+        sol = WorkerSolution.deserialize(input.startFrom);
+        firstOutput = sol.trCompute({ maxValidCount: Infinity });
+    }
+    else {
+        sol = new WorkerSolution(input.rows, input.cols, input.links);
+        firstOutput = sol.randomize(input.validCountCutoff);
+    }
+    yield { sol: sol.serialize() };
     let tiltCount = 0;
-    for (let { isTilt, isNewSol } of sol.evolve(input.validCountCutoff)) {
+    for (let { isTilt, isNewSol } of sol.evolve(firstOutput, input.validCountCutoff)) {
         if (isTilt) {
             tiltCount++;
             yield { tiltCount: tiltCount };
@@ -771,14 +797,13 @@ function* genGenetic(input, sol) {
 }
 function* generate(input) {
     input.validCountCutoff = input.validCountCutoff;
-    let sol = new WorkerSolution(input.rows, input.cols, input.links);
     if (input.mode == GenMode.BruteForce) {
-        for (let derived of genBruteForce(input, sol)) {
+        for (let derived of genBruteForce(input)) {
             yield derived;
         }
     }
     if (input.mode == GenMode.Genetic) {
-        for (let derived of genGenetic(input, sol)) {
+        for (let derived of genGenetic(input)) {
             yield derived;
         }
     }

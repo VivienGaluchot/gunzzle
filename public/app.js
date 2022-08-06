@@ -1,7 +1,6 @@
 "use strict";
-// TODO
-// - Start generation based on JSON import
 import * as Puzzle from './lib/puzzle.js';
+import * as WorkerFrontend from './lib/worker-frontend.js';
 const BASE_TITLE = document.title;
 // Utils
 function checkNonNull(element) {
@@ -175,8 +174,18 @@ async function execWithFormData(genMode, formData) {
     const cols = getIntProp(formData, "col_count");
     const links = getIntProp(formData, "link_count");
     const validCountCutoff = getIntProp(formData, "valid_count_cutoff");
-    const targetUnique = formData.has("target_unique");
+    const targetUnique = (genMode == Puzzle.GenMode.BruteForce) && formData.has("target_unique");
+    const useSelection = (genMode == Puzzle.GenMode.Genetic) && formData.has("use_selection");
     const isProgressAvailable = genMode == Puzzle.GenMode.BruteForce;
+    let input = {
+        rows: rows,
+        cols: cols,
+        links: links,
+        mode: genMode,
+        validCountCutoff: validCountCutoff,
+        targetUnique: targetUnique,
+        startFrom: useSelection ? selected?.serialize() : undefined,
+    };
     rmChildren(genOutput);
     rmChildren(genInfo);
     let count = 0;
@@ -188,73 +197,57 @@ async function execWithFormData(genMode, formData) {
     else {
         setPendingProgress(false);
     }
-    let worker = new Worker("worker.js", { type: "module" });
-    let promise = new Promise((resolve, reject) => {
-        worker.onmessage = (event) => {
-            let data = event.data;
-            if (data == null) {
-                resolve("success");
-            }
-            else {
-                if (data.sol) {
-                    let sol = Puzzle.Solution.deserialize(data.sol);
-                    let el = sol.render();
-                    el.onclick = () => {
-                        setSelected(sol);
-                    };
-                    genOutput.insertBefore(el, genOutput.firstChild);
-                    count++;
-                    showTitle(true, sol.statsString());
-                    if (genOutput.children.length > 100) {
-                        genOutput.lastChild?.remove();
-                    }
-                }
-                if (isProgressAvailable && data.progress) {
-                    setProgressPercent(data.progress * 100);
-                }
-                if (data.rate) {
-                    console.log("Rate", data.rate, "/ sec");
-                }
-                if (data.tiltCount) {
-                    showInfo(`Running ... ${data.tiltCount} tilts`);
-                }
-            }
-        };
-        worker.onerror = (event) => {
-            console.error("worker error", event);
-            reject("worker error");
-        };
-        cancelBtn.onclick = () => {
-            resolve("canceled");
-        };
-    }).then((state) => {
-        if (isProgressAvailable) {
-            setProgressPercent(100);
-        }
-        showInfo(`Done, ${state}`);
-    }).catch((reason) => {
-        showInfo(`Error, ${reason}`);
-    }).finally(() => {
-        worker.terminate();
-        showTitle(false, null);
-        ;
-        cancelBtn.disabled = true;
-        cancelBtn.onclick = null;
-        if (!isProgressAvailable) {
-            setPendingProgress(true);
-        }
-    });
+    const backend = WorkerFrontend.startBackend();
     cancelBtn.disabled = false;
-    let input = {
-        rows: rows,
-        cols: cols,
-        links: links,
-        mode: genMode,
-        validCountCutoff: validCountCutoff,
-        targetUnique: targetUnique
-    };
-    worker.postMessage(input);
-    return promise;
+    let hasCanceled = false;
+    let cancelPromise = new Promise((resolve, reject) => {
+        cancelBtn.onclick = () => {
+            hasCanceled = true;
+            resolve(undefined);
+        };
+    });
+    try {
+        for await (let output of WorkerFrontend.puzzleGenerate(cancelPromise, backend, input)) {
+            if (output.sol) {
+                let sol = Puzzle.Solution.deserialize(output.sol);
+                let el = sol.render();
+                el.onclick = () => {
+                    setSelected(sol);
+                };
+                genOutput.insertBefore(el, genOutput.firstChild);
+                count++;
+                showTitle(true, sol.statsString());
+                if (genOutput.children.length > 100) {
+                    genOutput.lastChild?.remove();
+                }
+            }
+            if (isProgressAvailable && output.progress) {
+                setProgressPercent(output.progress * 100);
+            }
+            if (output.rate) {
+                console.log("Rate", output.rate, "/ sec");
+            }
+            if (output.tiltCount) {
+                showInfo(`Running ... ${output.tiltCount} tilts`);
+            }
+        }
+        if (hasCanceled) {
+            showInfo(`Done, canceled`);
+        }
+        else {
+            showInfo(`Done, success`);
+        }
+    }
+    catch (error) {
+        showInfo(`${error}`);
+    }
+    showTitle(false, null);
+    ;
+    cancelBtn.disabled = true;
+    cancelBtn.onclick = null;
+    if (!isProgressAvailable) {
+        setPendingProgress(true);
+    }
 }
 // Gen mode
 function getMode(modeSelect) {

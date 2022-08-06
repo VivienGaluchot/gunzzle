@@ -617,6 +617,14 @@ class WorkerSolution {
         };
     }
 
+    static deserialize(obj: SerializedSolution) {
+        let instance = new WorkerSolution(obj.rows, obj.cols, obj.links);
+        for (let id = 0; id < instance.matrix.array.length; id++) {
+            instance.matrix.array[id] = obj.array[id];
+        }
+        return instance;
+    }
+
     // puzzle logic
 
     isNewBest(targetUnique: boolean): boolean {
@@ -724,17 +732,14 @@ class WorkerSolution {
         }
     }
 
-    * evolve(initialCutoff: number): Generator<EvolveOutput> {
+    * evolve(initialOutput: TrComputeOutput, initialCutoff: number): Generator<EvolveOutput> {
         function isBest(prev: TrComputeOutput | null, next: TrComputeOutput): boolean {
             return prev == null
                 || (next.validCount < prev.validCount)
                 || (next.validCount == prev.validCount && next.almostValidCount > prev.almostValidCount);
         }
 
-        let initialOutput = this.randomize(initialCutoff);
-        yield { isTilt: false, isNewSol: true };
-
-        let ultraBestOutput: TrComputeOutput | null = null;
+        let ultraBestOutput: TrComputeOutput = initialOutput;
         let ultraBestState: MatrixEvolutionState = this.matrix.getState();
         let trInput: TrComputeInput = { maxValidCount: initialOutput.validCount };
 
@@ -804,6 +809,16 @@ interface ExternalFormat {
 class Solution {
     matrix: FragmentMatrix;
     stats: SolutionStats;
+
+    serialize(): SerializedSolution {
+        return {
+            rows: this.matrix.rows,
+            cols: this.matrix.cols,
+            links: this.matrix.links,
+            array: this.matrix.array,
+            stats: this.stats,
+        };
+    }
 
     static deserialize(obj: SerializedSolution) {
         let instance = new Solution(obj.rows, obj.cols, obj.links, obj.stats);
@@ -912,7 +927,8 @@ interface GenInput {
     links: number,
     mode: GenMode,
     validCountCutoff: number,
-    targetUnique: boolean
+    targetUnique: boolean,
+    startFrom?: SerializedSolution,
 }
 
 interface GenOutput {
@@ -923,7 +939,8 @@ interface GenOutput {
     iterCount?: number,
 }
 
-function* genBruteForce(input: GenInput, sol: WorkerSolution): Generator<GenOutput> {
+function* genBruteForce(input: GenInput): Generator<GenOutput> {
+    let sol = new WorkerSolution(input.rows, input.cols, input.links);
     let timeWindowCount = 0;
     let iterCount = 0;
     let swipeIndex = 0;
@@ -959,9 +976,20 @@ function* genBruteForce(input: GenInput, sol: WorkerSolution): Generator<GenOutp
     assert(swipeLength == null || iterCount == swipeLength, "Wrong swipe length", swipeLength);
 }
 
-function* genGenetic(input: GenInput, sol: WorkerSolution): Generator<GenOutput> {
+function* genGenetic(input: GenInput): Generator<GenOutput> {
+    let sol: WorkerSolution;
+    let firstOutput: TrComputeOutput;
+    if (input.startFrom) {
+        sol = WorkerSolution.deserialize(input.startFrom);
+        firstOutput = sol.trCompute({ maxValidCount: Infinity });
+    } else {
+        sol = new WorkerSolution(input.rows, input.cols, input.links);
+        firstOutput = sol.randomize(input.validCountCutoff);
+    }
+    yield { sol: sol.serialize() };
+
     let tiltCount = 0;
-    for (let { isTilt, isNewSol } of sol.evolve(input.validCountCutoff)) {
+    for (let { isTilt, isNewSol } of sol.evolve(firstOutput, input.validCountCutoff)) {
         if (isTilt) {
             tiltCount++;
             yield { tiltCount: tiltCount };
@@ -974,15 +1002,13 @@ function* genGenetic(input: GenInput, sol: WorkerSolution): Generator<GenOutput>
 
 function* generate(input: GenInput): Generator<GenOutput> {
     input.validCountCutoff = input.validCountCutoff;
-
-    let sol = new WorkerSolution(input.rows, input.cols, input.links);
     if (input.mode == GenMode.BruteForce) {
-        for (let derived of genBruteForce(input, sol)) {
+        for (let derived of genBruteForce(input)) {
             yield derived;
         }
     }
     if (input.mode == GenMode.Genetic) {
-        for (let derived of genGenetic(input, sol)) {
+        for (let derived of genGenetic(input)) {
             yield derived;
         }
     }
