@@ -56,9 +56,17 @@
             <div class="select-panel">
                 <div class="tool-bar">
                     <label class="grow">Selection</label>
+                    <label for="select-preset">Preset</label>
+                    <select id="select-preset">
+                        <option selected>-</option>
+                        <option data-import-path="samples/2x2(3) 1 x51.json">2x2(3) 1 x51</option>
+                        <option data-import-path="samples/3x2(4) 1 x333.json">3x2(4) 1 x333</option>
+                        <option data-import-path="samples/3x3(3) 1 x1807.json">3x3(3) 1 x1807</option>
+                        <option data-import-path="samples/3x3(3) 1x2789.json">3x3(3) 1x2789</option>
+                        <option data-import-path="samples/3x3(3) 1 x4037.json">3x3(3) 1 x4037</option>
+                    </select>
                     <button id="btn-select-import">Import</button>
                     <button id="btn-select-export">Export</button>
-                    <button id="btn-select-clear">Clear</button>
                 </div>
                 <div id="select-output" class="svg-area"></div>
             </div>

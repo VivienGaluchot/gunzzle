@@ -82,13 +82,13 @@ function matrixIncrementLength(matrix: number[], maxBound: number) {
     return Math.pow((maxBound * 2), (matrix.length - 1));
 }
 
-const SYMMETRY_COUNT = DIRECTION_COUNT * 2;
+const ROTATION_COUNT = DIRECTION_COUNT * 2;
 
 ///        non flip | flip
 /// r: [0, 1, 2, 3, | 4, 5, 6, 7]
 function rotate(dir: Direction, r: number): Direction {
     assert(dir >= 0 && dir < DIRECTION_COUNT, "invalid direction", dir);
-    assert(r >= 0 && r < SYMMETRY_COUNT, "invalid rotation", r);
+    assert(r >= 0 && r < ROTATION_COUNT, "invalid rotation", r);
 
     let rotated = (dir + r) % DIRECTION_COUNT;
     if (r < DIRECTION_COUNT) {
@@ -351,9 +351,9 @@ interface SolutionStats {
 }
 
 function statsToString(stats: SolutionStats) {
-    let validCount = stats.validCount / SYMMETRY_COUNT;
+    let validCount = stats.validCount;
     let almostRate = stats.almostValidCount / stats.validCount;
-    return `${validCount} x${almostRate.toFixed(1)}`;
+    return `${validCount} x${almostRate.toFixed(0)}`;
 }
 
 interface TrComputeInput {
@@ -368,13 +368,16 @@ class Transform {
     readonly matrix: FragmentMatrix;
     readonly lookup: Lookup;
 
-    private maxCount: number;
+    private maxCount = -1;
     private minAlmostCount = -1;
 
-    constructor(matrix: FragmentMatrix, validCountCutoff: number) {
+    constructor(matrix: FragmentMatrix) {
         this.matrix = matrix;
         this.lookup = new Lookup(matrix);
-        this.maxCount = validCountCutoff;
+    }
+
+    setCutoff(maxCount: number) {
+        this.maxCount = maxCount;
     }
 
     isNewBest(): TrComputeOutput {
@@ -388,7 +391,6 @@ class Transform {
         };
         let output = this.trCompute(input);
         if (!output.aborted) {
-            assert(output.validCount % SYMMETRY_COUNT == 0, "unexpected output", output);
             if (output.validCount < this.maxCount) {
                 console.debug("New max valid count", output);
                 this.maxCount = output.validCount;
@@ -410,12 +412,18 @@ class Transform {
         for (let pos of this.matrix.everyPos()) {
             pieces.push(pos);
         }
+
+        let symCount = this.matrix.rows == this.matrix.cols ? ROTATION_COUNT : ROTATION_COUNT / 2;
+        let flipSymmetry = this.matrix.rows == this.matrix.cols;
+
+        let internalInput = { maxValidCount: input.maxValidCount * symCount };
         let output = {
             aborted: false,
             validCount: 0,
             almostValidCount: 0
         };
-        this.recConstruct({ row: 0, col: 0 }, pieces, input, output);
+
+        this.recConstruct(flipSymmetry, { row: 0, col: 0 }, pieces, internalInput, output);
 
         // let pieces2: Pos[] = [];
         // for (let pos of this.matrix.everyPos()) {
@@ -426,15 +434,21 @@ class Transform {
         //     validCount: 0,
         //     almostValidCount: 0
         // };
-        // this.recConstructNonOptimized({ row: 0, col: 0 }, pieces2, input, output2);
+        // this.recConstructNonOptimized({ row: 0, col: 0 }, pieces2, internalInput, output2);
 
         // if (output.aborted != output2.aborted || (!output.aborted && (output.validCount != output2.validCount || output.almostValidCount != output2.almostValidCount))) {
         //     console.error("Original ", output2);
         //     console.error("Optimized", output);
         //     throw new Error("err");
         // } else {
-        //     console.log("optimized algo runtime check ok");
+        //     console.log("optimized algo runtime check ok", output);
         // }
+
+        if (!output.aborted) {
+            assert(output.validCount % symCount == 0, "validCount not divisible by symmetries", output, symCount);
+        }
+        output.validCount = output.validCount / symCount;
+        output.almostValidCount = output.almostValidCount / symCount;
 
         return output;
     }
@@ -444,8 +458,7 @@ class Transform {
     // fixedCount: [0; rows * cols] number of pieces with defined
     // remaining: set of pieces not placed yet
     // return true when at least one solution have been found
-    private recConstruct(pos: Pos, remaining: Pos[], input: TrComputeInput, output: TrComputeOutput): boolean {
-        let useFlipSymmetry = this.matrix.rows == this.matrix.cols;
+    private recConstruct(useFlipSymmetry: boolean, pos: Pos, remaining: Pos[], input: TrComputeInput, output: TrComputeOutput): boolean {
         if (remaining.length == 0) {
             // add 2 to compensate for the first piece rotations skipped
             output.validCount += useFlipSymmetry ? 2 : 1;
@@ -469,8 +482,9 @@ class Transform {
                 let selected = subPieces.splice(idx, 1)[0];
 
                 // rotate it
-                // do not rotate first piece to gain some time by skipping symmetries
-                let rCount = (useFlipSymmetry && pos.row == 0 && pos.col == 0) ? 4 : SYMMETRY_COUNT;
+                // do not rotate first piece fully to gain some time by skipping symmetries
+                // TODO check if more can be skipped
+                let rCount = (useFlipSymmetry && pos.row == 0 && pos.col == 0) ? ROTATION_COUNT / 2 : ROTATION_COUNT;
                 for (let r = 0; r < rCount; r++) {
                     this.lookup.setTransform(selected, pos, r);
 
@@ -480,14 +494,14 @@ class Transform {
                     } else if (top != null && top != this.lookup.at(pos, Direction.Top)) {
                         // not compatible
                     } else {
-                        // continue with the next piece
+                        // continue with the next piece;
                         let subPos = { ...pos };
                         subPos.col++;
                         if (subPos.col == this.matrix.cols) {
                             subPos.col = 0;
                             subPos.row++;
                         }
-                        hasFound = this.recConstruct(subPos, subPieces, input, output) || hasFound;
+                        hasFound = this.recConstruct(useFlipSymmetry, subPos, subPieces, input, output) || hasFound;
                         if (output.validCount > input.maxValidCount) {
                             output.aborted = true;
                             return false;
@@ -529,7 +543,7 @@ class Transform {
                 let selected = subPieces.splice(idx, 1)[0];
 
                 // rotate it
-                for (let r = 0; r < SYMMETRY_COUNT; r++) {
+                for (let r = 0; r < ROTATION_COUNT; r++) {
                     this.lookup.setTransform(selected, pos, r);
 
                     // check new piece compatibility
@@ -583,10 +597,10 @@ class WorkerSolution {
     readonly transform: Transform;
     stats: SolutionStats;
 
-    constructor(rows: number, cols: number, links: number, validCountCutoff: number) {
+    constructor(rows: number, cols: number, links: number) {
         this.matrix = new FragmentMatrix(rows, cols, links, -1 * links);
         this.lookup = new Lookup(this.matrix);
-        this.transform = new Transform(this.matrix, validCountCutoff);
+        this.transform = new Transform(this.matrix);
         this.stats = {
             validCount: 0,
             almostValidCount: 0
@@ -811,12 +825,20 @@ class Solution {
     // import/export
 
     static import(obj: ExternalFormat) {
-        let instance = new WorkerSolution(obj.rows, obj.cols, obj.links, Infinity);
+        let instance = new WorkerSolution(obj.rows, obj.cols, obj.links);
+        for (let id = 0; id < instance.matrix.array.length; id++) {
+            instance.matrix.array[id] = 0;
+        }
+        let setValue = (pos: Pos, dir: Direction, value: number) => {
+            let initial = instance.matrix.at(pos, dir);
+            assert(initial == 0 || initial == value, "inconsistency detected", { pos, dir, initial, value });
+            instance.matrix.setAt(pos, dir, value);
+        }
         for (let piece of obj.pieces) {
-            instance.matrix.setAt(piece.pos, Direction.Top, piece.top);
-            instance.matrix.setAt(piece.pos, Direction.Right, piece.right);
-            instance.matrix.setAt(piece.pos, Direction.Bottom, piece.bottom);
-            instance.matrix.setAt(piece.pos, Direction.Left, piece.left);
+            setValue(piece.pos, Direction.Top, piece.top);
+            setValue(piece.pos, Direction.Right, piece.right);
+            setValue(piece.pos, Direction.Bottom, piece.bottom);
+            setValue(piece.pos, Direction.Left, piece.left);
         }
         console.log("Compute imported puzzle statistics...");
         instance.trCompute({ maxValidCount: Infinity });
@@ -908,6 +930,7 @@ function* genBruteForce(input: GenInput, sol: WorkerSolution): Generator<GenOutp
     let timeWindowStart = Date.now();
     let swipeLength = sol.swipeLength();
 
+    sol.transform.setCutoff(input.validCountCutoff);
     for (let _ of sol.swipe()) {
         if (sol.isNewBest(input.targetUnique)) {
             yield {
@@ -950,9 +973,9 @@ function* genGenetic(input: GenInput, sol: WorkerSolution): Generator<GenOutput>
 }
 
 function* generate(input: GenInput): Generator<GenOutput> {
-    input.validCountCutoff = input.validCountCutoff * SYMMETRY_COUNT;
+    input.validCountCutoff = input.validCountCutoff;
 
-    let sol = new WorkerSolution(input.rows, input.cols, input.links, input.validCountCutoff);
+    let sol = new WorkerSolution(input.rows, input.cols, input.links);
     if (input.mode == GenMode.BruteForce) {
         for (let derived of genBruteForce(input, sol)) {
             yield derived;

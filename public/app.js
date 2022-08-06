@@ -1,9 +1,6 @@
 "use strict";
 // TODO
-// - Export to JSON
 // - Start generation based on JSON import
-// - Save in local storage on demand
-// - 2*3 symmetry adjustment
 import * as Puzzle from './lib/puzzle.js';
 const BASE_TITLE = document.title;
 // Utils
@@ -50,7 +47,7 @@ function getIntProp(formData, name) {
     return Number(prop);
 }
 function exportJson(filename, obj) {
-    const blob = [JSON.stringify(obj, null, 3)];
+    const blob = [JSON.stringify(obj, null, 4)];
     const file = new File(blob, filename, {
         type: 'application/json',
     });
@@ -93,9 +90,9 @@ const modeSelect = checkSelect(document.getElementById("gen-mode"));
 const runBtn = checkBtn(document.getElementById("btn-run"));
 const cancelBtn = checkBtn(document.getElementById("btn-cancel"));
 const selectOutput = checkNonNull(document.getElementById("select-output"));
+const selectPreset = checkSelect(document.getElementById("select-preset"));
 const importBtn = checkBtn(document.getElementById("btn-select-import"));
 const exportBtn = checkBtn(document.getElementById("btn-select-export"));
-const clearBtn = checkBtn(document.getElementById("btn-select-clear"));
 const progressBar = checkNonNull(document.getElementById("gen-progress"));
 const progressLabel = checkNonNull(document.getElementById("gen-progress-label"));
 const remTimeLabel = checkNonNull(document.getElementById("gen-rem-time-label"));
@@ -108,9 +105,6 @@ function setSelected(sol) {
     selectOutput.appendChild(sol.render());
     selected = sol;
 }
-clearBtn.onclick = () => {
-    rmChildren(selectOutput);
-};
 importBtn.onclick = async () => {
     let obj = await importJson();
     let sol = Puzzle.Solution.import(obj);
@@ -120,6 +114,18 @@ exportBtn.onclick = () => {
     if (selected) {
         const filename = `${selected.matrix.rows}x${selected.matrix.cols}(${selected.matrix.links}) ${selected.statsString()}.json`;
         exportJson(filename, selected.export());
+    }
+};
+selectPreset.onchange = async () => {
+    let selected = selectPreset.options[selectPreset.selectedIndex];
+    let path = selected.dataset.importPath;
+    if (path) {
+        console.log("load preset at path", path);
+        let response = await fetch(path);
+        let obj = await response.json();
+        // TODO offload stat computation to worker
+        let sol = Puzzle.Solution.import(obj);
+        setSelected(sol);
     }
 };
 // Generation
