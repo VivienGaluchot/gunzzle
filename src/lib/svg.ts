@@ -47,12 +47,12 @@ interface SvgStyle {
 }
 
 class SvgNode {
-    domEl: SVGElement | HTMLElement;
+    domEl: SVGElement;
     rotationAngle?: number;
     translateVector?: Maths.Vector;
     scaleVector?: Maths.Vector;
 
-    constructor(el: SVGElement | HTMLElement) {
+    constructor(el: SVGElement) {
         this.domEl = el;
     }
 

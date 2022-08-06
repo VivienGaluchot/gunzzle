@@ -80,9 +80,10 @@ function rotate(dir, r) {
     }
 }
 class FragmentMatrix {
-    constructor(rows, cols, initial) {
+    constructor(rows, cols, links, initial) {
         this.rows = rows;
         this.cols = cols;
+        this.links = links;
         this.colSize = 2;
         this.rowSize = this.cols * this.colSize;
         let len = this.rows * this.cols * 2 + this.rows + this.cols;
@@ -140,6 +141,11 @@ class FragmentMatrix {
         let index = this.getFrIndex(pos, dir);
         return this.array[index.idx] * index.sign;
     }
+    setAt(pos, dir, fragment) {
+        let index = this.getFrIndex(pos, dir);
+        fragment = index.sign * fragment;
+        return this.array[index.idx] = fragment;
+    }
     // cells
     *everyPos() {
         for (let row = 0; row < this.rows; row++) {
@@ -149,48 +155,48 @@ class FragmentMatrix {
         }
     }
     // brute force
-    swipeLength(maxBound) {
-        return 1 + matrixIncrementLength(this.array, maxBound);
+    swipeLength() {
+        return 1 + matrixIncrementLength(this.array, this.links);
     }
-    *swipe(maxBound) {
+    *swipe() {
         let isDone = false;
         yield null;
         while (!isDone) {
-            isDone = matrixIncrement(this.array, maxBound);
+            isDone = matrixIncrement(this.array, this.links);
             yield null;
         }
     }
     // generic
-    randomize(maxBound) {
-        this.array[0] = -1 * maxBound;
+    randomize() {
+        this.array[0] = -1 * this.links;
         for (let idx = 1; idx < this.array.length; idx++) {
-            let x = Maths.getRandomInt(0, maxBound * 2);
-            if (x < maxBound) {
-                // -maxBound .. -1
-                this.array[idx] = -1 * maxBound + x;
+            let x = Maths.getRandomInt(0, this.links * 2);
+            if (x < this.links) {
+                // -links .. -1
+                this.array[idx] = -1 * this.links + x;
             }
             else {
-                // 1 .. maxBound
-                this.array[idx] = x - maxBound + 1;
+                // 1 .. links
+                this.array[idx] = x - this.links + 1;
             }
         }
     }
-    tilt(maxBound) {
+    tilt() {
         let tiltCount = 0;
         for (let idx = 0; idx < this.array.length; idx++) {
             if (Maths.getRandomInt(0, 4) == 0) {
                 tiltCount++;
-                let offset = Maths.getRandomInt(1, maxBound * 2);
-                this.array[idx] = fragmentNext(this.array[idx], maxBound, offset);
+                let offset = Maths.getRandomInt(1, this.links * 2);
+                this.array[idx] = fragmentNext(this.array[idx], this.links, offset);
             }
         }
         console.log("Tilted", tiltCount, "over", this.array.length);
     }
-    *localEvolutions(maxBound) {
-        for (let off = 1; off < (maxBound * 2); off++) {
+    *localEvolutions() {
+        for (let off = 1; off < (this.links * 2); off++) {
             for (let idx = 0; idx < this.array.length; idx++) {
                 let initial = this.array[idx];
-                this.array[idx] = fragmentNext(this.array[idx], maxBound, off);
+                this.array[idx] = fragmentNext(this.array[idx], this.links, off);
                 yield { idx: idx, value: this.array[idx], initial: initial };
                 this.array[idx] = initial;
             }
@@ -259,6 +265,11 @@ class Lookup {
         let frIndex = this.active[this.lookIndex(pos, dir)];
         return this.matrix.array[frIndex.idx] * frIndex.sign;
     }
+}
+function statsToString(stats) {
+    let validCount = stats.validCount / SYMMETRY_COUNT;
+    let almostRate = stats.almostValidCount / stats.validCount;
+    return `${validCount} x${almostRate.toFixed(1)}`;
 }
 class Transform {
     constructor(matrix, validCountCutoff) {
@@ -439,9 +450,8 @@ class Transform {
     }
 }
 class WorkerSolution {
-    constructor(rows, cols, maxBound, validCountCutoff) {
-        this.maxBound = maxBound;
-        this.matrix = new FragmentMatrix(rows, cols, -1 * maxBound);
+    constructor(rows, cols, links, validCountCutoff) {
+        this.matrix = new FragmentMatrix(rows, cols, links, -1 * links);
         this.lookup = new Lookup(this.matrix);
         this.transform = new Transform(this.matrix, validCountCutoff);
         this.stats = {
@@ -453,6 +463,7 @@ class WorkerSolution {
         return {
             rows: this.matrix.rows,
             cols: this.matrix.cols,
+            links: this.matrix.links,
             array: this.matrix.array,
             stats: this.stats,
         };
@@ -535,10 +546,10 @@ class WorkerSolution {
     }
     // brute force
     swipeLength() {
-        return this.matrix.swipeLength(this.maxBound);
+        return this.matrix.swipeLength();
     }
     *swipe() {
-        for (let _ of this.matrix.swipe(this.maxBound)) {
+        for (let _ of this.matrix.swipe()) {
             yield null;
         }
     }
@@ -546,7 +557,7 @@ class WorkerSolution {
     randomize(initialCutoff) {
         let trInput = { maxValidCount: initialCutoff };
         while (true) {
-            this.matrix.randomize(this.maxBound);
+            this.matrix.randomize();
             let output = this.trCompute(trInput);
             if (!output.aborted) {
                 return output;
@@ -571,7 +582,7 @@ class WorkerSolution {
             let bestOutput = null;
             while (true) {
                 let next = null;
-                for (let evolution of this.matrix.localEvolutions(this.maxBound)) {
+                for (let evolution of this.matrix.localEvolutions()) {
                     let output = this.trCompute(trInput);
                     if (!output.aborted) {
                         if (isBest(bestOutput, output)) {
@@ -601,12 +612,12 @@ class WorkerSolution {
             }
             console.log("Tilt");
             this.matrix.setState(ultraBestState);
-            this.matrix.tilt(this.maxBound);
+            this.matrix.tilt();
             trInput.maxValidCount = initialCutoff;
             yield { isTilt: true, isNewSol: false };
         }
     }
-    // wrapper
+    // stat update
     trCompute(input) {
         let output = this.transform.trCompute(input);
         if (!output.aborted) {
@@ -616,16 +627,51 @@ class WorkerSolution {
     }
 }
 class Solution {
-    constructor(rows, cols, stats) {
-        this.matrix = new FragmentMatrix(rows, cols, 0);
+    constructor(rows, cols, links, stats) {
+        this.matrix = new FragmentMatrix(rows, cols, links, 0);
         this.stats = stats;
     }
     static deserialize(obj) {
-        let instance = new Solution(obj.rows, obj.cols, obj.stats);
+        let instance = new Solution(obj.rows, obj.cols, obj.links, obj.stats);
         for (let id = 0; id < instance.matrix.array.length; id++) {
             instance.matrix.array[id] = obj.array[id];
         }
         return instance;
+    }
+    statsString() {
+        return statsToString(this.stats);
+    }
+    // import/export
+    static import(obj) {
+        let instance = new WorkerSolution(obj.rows, obj.cols, obj.links, Infinity);
+        for (let piece of obj.pieces) {
+            instance.matrix.setAt(piece.pos, Direction.Top, piece.top);
+            instance.matrix.setAt(piece.pos, Direction.Right, piece.right);
+            instance.matrix.setAt(piece.pos, Direction.Bottom, piece.bottom);
+            instance.matrix.setAt(piece.pos, Direction.Left, piece.left);
+        }
+        console.log("Compute imported puzzle statistics...");
+        instance.trCompute({ maxValidCount: Infinity });
+        console.log("Done", statsToString(instance.stats));
+        return Solution.deserialize(instance.serialize());
+    }
+    export() {
+        let pieces = [];
+        for (let pos of this.matrix.everyPos()) {
+            pieces.push({
+                pos,
+                top: this.matrix.at(pos, Direction.Top),
+                right: this.matrix.at(pos, Direction.Right),
+                bottom: this.matrix.at(pos, Direction.Bottom),
+                left: this.matrix.at(pos, Direction.Left)
+            });
+        }
+        return {
+            rows: this.matrix.rows,
+            cols: this.matrix.cols,
+            links: this.matrix.links,
+            pieces: pieces,
+        };
     }
     // display
     render() {
@@ -653,14 +699,9 @@ class Solution {
             piece.translation = new Maths.Vector(pos.col * 10, pos.row * 10);
             group.appendChild(piece);
         }
-        group.appendChild(new Svg.Text(statsToString(this.stats), this.matrix.cols * 5, 0, { className: "stat-label" }));
+        group.appendChild(new Svg.Text(this.statsString(), this.matrix.cols * 5, 0, { className: "stat-label" }));
         return frame.domEl;
     }
-}
-function statsToString(stats) {
-    let validCount = stats.validCount / SYMMETRY_COUNT;
-    let almostRate = stats.almostValidCount / stats.validCount;
-    return `${validCount} x${almostRate.toFixed(1)}`;
 }
 var GenMode;
 (function (GenMode) {
@@ -723,4 +764,4 @@ function* generate(input) {
         }
     }
 }
-export { generate, Solution, GenMode, statsToString };
+export { generate, Solution, GenMode };

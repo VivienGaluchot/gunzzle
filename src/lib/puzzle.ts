@@ -115,6 +115,7 @@ interface MatrixEvolutionState {
 class FragmentMatrix {
     readonly rows: number;
     readonly cols: number;
+    readonly links: number;
 
     // Storage order
     // [rows] + [cols] + [rows * cols * 2]
@@ -129,9 +130,10 @@ class FragmentMatrix {
     private readonly colSize: number;
     private readonly rowSize: number;
 
-    constructor(rows: number, cols: number, initial: number) {
+    constructor(rows: number, cols: number, links: number, initial: number) {
         this.rows = rows;
         this.cols = cols;
+        this.links = links;
 
         this.colSize = 2;
         this.rowSize = this.cols * this.colSize;
@@ -195,6 +197,12 @@ class FragmentMatrix {
         return this.array[index.idx] * index.sign;
     }
 
+    setAt(pos: Pos, dir: Direction, fragment: number) {
+        let index = this.getFrIndex(pos, dir);
+        fragment = index.sign * fragment;
+        return this.array[index.idx] = fragment;
+    }
+
     // cells
 
     * everyPos(): Generator<Pos> {
@@ -207,52 +215,52 @@ class FragmentMatrix {
 
     // brute force
 
-    swipeLength(maxBound: number): number {
-        return 1 + matrixIncrementLength(this.array, maxBound);
+    swipeLength(): number {
+        return 1 + matrixIncrementLength(this.array, this.links);
     }
 
-    * swipe(maxBound: number): Generator<null> {
+    * swipe(): Generator<null> {
         let isDone = false;
         yield null;
         while (!isDone) {
-            isDone = matrixIncrement(this.array, maxBound);
+            isDone = matrixIncrement(this.array, this.links);
             yield null;
         }
     }
 
     // generic
 
-    randomize(maxBound: number) {
-        this.array[0] = -1 * maxBound;
+    randomize() {
+        this.array[0] = -1 * this.links;
         for (let idx = 1; idx < this.array.length; idx++) {
-            let x = Maths.getRandomInt(0, maxBound * 2);
-            if (x < maxBound) {
-                // -maxBound .. -1
-                this.array[idx] = -1 * maxBound + x;
+            let x = Maths.getRandomInt(0, this.links * 2);
+            if (x < this.links) {
+                // -links .. -1
+                this.array[idx] = -1 * this.links + x;
             } else {
-                // 1 .. maxBound
-                this.array[idx] = x - maxBound + 1;
+                // 1 .. links
+                this.array[idx] = x - this.links + 1;
             }
         }
     }
 
-    tilt(maxBound: number) {
+    tilt() {
         let tiltCount = 0;
         for (let idx = 0; idx < this.array.length; idx++) {
             if (Maths.getRandomInt(0, 4) == 0) {
                 tiltCount++;
-                let offset = Maths.getRandomInt(1, maxBound * 2);
-                this.array[idx] = fragmentNext(this.array[idx], maxBound, offset);
+                let offset = Maths.getRandomInt(1, this.links * 2);
+                this.array[idx] = fragmentNext(this.array[idx], this.links, offset);
             }
         }
         console.log("Tilted", tiltCount, "over", this.array.length);
     }
 
-    * localEvolutions(maxBound: number): Generator<MatrixEvolution> {
-        for (let off = 1; off < (maxBound * 2); off++) {
+    * localEvolutions(): Generator<MatrixEvolution> {
+        for (let off = 1; off < (this.links * 2); off++) {
             for (let idx = 0; idx < this.array.length; idx++) {
                 let initial = this.array[idx];
-                this.array[idx] = fragmentNext(this.array[idx], maxBound, off);
+                this.array[idx] = fragmentNext(this.array[idx], this.links, off);
                 yield { idx: idx, value: this.array[idx], initial: initial };
                 this.array[idx] = initial;
             }
@@ -340,6 +348,12 @@ class Lookup {
 interface SolutionStats {
     validCount: number;
     almostValidCount: number;
+}
+
+function statsToString(stats: SolutionStats) {
+    let validCount = stats.validCount / SYMMETRY_COUNT;
+    let almostRate = stats.almostValidCount / stats.validCount;
+    return `${validCount} x${almostRate.toFixed(1)}`;
 }
 
 interface TrComputeInput {
@@ -553,6 +567,7 @@ class Transform {
 interface SerializedSolution {
     rows: number,
     cols: number,
+    links: number,
     array: number[],
     stats: SolutionStats,
 }
@@ -563,15 +578,13 @@ interface EvolveOutput {
 }
 
 class WorkerSolution {
-    readonly maxBound: number;
     readonly matrix: FragmentMatrix;
     readonly lookup: Lookup;
     readonly transform: Transform;
     stats: SolutionStats;
 
-    constructor(rows: number, cols: number, maxBound: number, validCountCutoff: number) {
-        this.maxBound = maxBound;
-        this.matrix = new FragmentMatrix(rows, cols, -1 * maxBound);
+    constructor(rows: number, cols: number, links: number, validCountCutoff: number) {
+        this.matrix = new FragmentMatrix(rows, cols, links, -1 * links);
         this.lookup = new Lookup(this.matrix);
         this.transform = new Transform(this.matrix, validCountCutoff);
         this.stats = {
@@ -584,6 +597,7 @@ class WorkerSolution {
         return {
             rows: this.matrix.rows,
             cols: this.matrix.cols,
+            links: this.matrix.links,
             array: this.matrix.array,
             stats: this.stats,
         };
@@ -672,11 +686,11 @@ class WorkerSolution {
     // brute force
 
     swipeLength(): number {
-        return this.matrix.swipeLength(this.maxBound);
+        return this.matrix.swipeLength();
     }
 
     * swipe(): Generator<null> {
-        for (let _ of this.matrix.swipe(this.maxBound)) {
+        for (let _ of this.matrix.swipe()) {
             yield null;
         }
     }
@@ -686,7 +700,7 @@ class WorkerSolution {
     randomize(initialCutoff: number): TrComputeOutput {
         let trInput: TrComputeInput = { maxValidCount: initialCutoff };
         while (true) {
-            this.matrix.randomize(this.maxBound);
+            this.matrix.randomize();
             let output = this.trCompute(trInput);
             if (!output.aborted) {
                 return output;
@@ -714,7 +728,7 @@ class WorkerSolution {
             let bestOutput: TrComputeOutput | null = null;
             while (true) {
                 let next = null;
-                for (let evolution of this.matrix.localEvolutions(this.maxBound)) {
+                for (let evolution of this.matrix.localEvolutions()) {
                     let output = this.trCompute(trInput);
                     if (!output.aborted) {
                         if (isBest(bestOutput, output)) {
@@ -743,15 +757,15 @@ class WorkerSolution {
 
             console.log("Tilt");
             this.matrix.setState(ultraBestState);
-            this.matrix.tilt(this.maxBound);
+            this.matrix.tilt();
             trInput.maxValidCount = initialCutoff;
             yield { isTilt: true, isNewSol: false };
         }
     }
 
-    // wrapper
+    // stat update
 
-    private trCompute(input: TrComputeInput): TrComputeOutput {
+    trCompute(input: TrComputeInput): TrComputeOutput {
         let output = this.transform.trCompute(input);
         if (!output.aborted) {
             this.stats = output;
@@ -760,27 +774,78 @@ class WorkerSolution {
     }
 }
 
+interface ExternalFormat {
+    rows: number,
+    cols: number,
+    links: number,
+    pieces: {
+        pos: Pos,
+        top: number,
+        right: number,
+        bottom: number,
+        left: number
+    }[]
+}
 
 class Solution {
     matrix: FragmentMatrix;
     stats: SolutionStats;
 
     static deserialize(obj: SerializedSolution) {
-        let instance = new Solution(obj.rows, obj.cols, obj.stats);
+        let instance = new Solution(obj.rows, obj.cols, obj.links, obj.stats);
         for (let id = 0; id < instance.matrix.array.length; id++) {
             instance.matrix.array[id] = obj.array[id];
         }
         return instance;
     }
 
-    constructor(rows: number, cols: number, stats: SolutionStats) {
-        this.matrix = new FragmentMatrix(rows, cols, 0);
+    constructor(rows: number, cols: number, links: number, stats: SolutionStats) {
+        this.matrix = new FragmentMatrix(rows, cols, links, 0);
         this.stats = stats;
+    }
+
+    statsString() {
+        return statsToString(this.stats);
+    }
+
+    // import/export
+
+    static import(obj: ExternalFormat) {
+        let instance = new WorkerSolution(obj.rows, obj.cols, obj.links, Infinity);
+        for (let piece of obj.pieces) {
+            instance.matrix.setAt(piece.pos, Direction.Top, piece.top);
+            instance.matrix.setAt(piece.pos, Direction.Right, piece.right);
+            instance.matrix.setAt(piece.pos, Direction.Bottom, piece.bottom);
+            instance.matrix.setAt(piece.pos, Direction.Left, piece.left);
+        }
+        console.log("Compute imported puzzle statistics...");
+        instance.trCompute({ maxValidCount: Infinity });
+        console.log("Done", statsToString(instance.stats));
+        return Solution.deserialize(instance.serialize());
+    }
+
+    export(): ExternalFormat {
+        let pieces = [];
+        for (let pos of this.matrix.everyPos()) {
+            pieces.push({
+                pos,
+                top: this.matrix.at(pos, Direction.Top),
+                right: this.matrix.at(pos, Direction.Right),
+                bottom: this.matrix.at(pos, Direction.Bottom),
+                left: this.matrix.at(pos, Direction.Left)
+            });
+        }
+        return {
+            rows: this.matrix.rows,
+            cols: this.matrix.cols,
+            links: this.matrix.links,
+            pieces: pieces,
+        };
     }
 
     // display
 
-    render(): Element {
+    render(): SVGElement {
         let frame = new Svg.SvgFrame();
         frame.domEl.classList.add("puzzle-solution");
         let group = new Svg.Group();
@@ -809,15 +874,9 @@ class Solution {
             group.appendChild(piece);
         }
 
-        group.appendChild(new Svg.Text(statsToString(this.stats), this.matrix.cols * 5, 0, { className: "stat-label" }));
+        group.appendChild(new Svg.Text(this.statsString(), this.matrix.cols * 5, 0, { className: "stat-label" }));
         return frame.domEl;
     }
-}
-
-function statsToString(stats: SolutionStats) {
-    let validCount = stats.validCount / SYMMETRY_COUNT;
-    let almostRate = stats.almostValidCount / stats.validCount;
-    return `${validCount} x${almostRate.toFixed(1)}`;
 }
 
 enum GenMode {
@@ -906,4 +965,4 @@ function* generate(input: GenInput): Generator<GenOutput> {
     }
 }
 
-export { generate, Solution, GenMode, GenInput, GenOutput, statsToString }
+export { generate, Solution, GenMode, GenInput, GenOutput, ExternalFormat }

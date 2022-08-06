@@ -59,6 +59,47 @@ function getIntProp(formData: FormData, name: string): number {
     return Number(prop);
 }
 
+function exportJson(filename: string, obj: any) {
+    const blob = [JSON.stringify(obj, null, 3)];
+    const file = new File(blob, filename, {
+        type: 'application/json',
+    });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(file);
+    link.hidden = true;
+    link.href = url;
+    link.download = file.name;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+}
+
+async function importJson() {
+    let fileInput = document.createElement("input");
+    fileInput.type = 'file';
+    fileInput.hidden = true;
+    document.body.appendChild(fileInput);
+    return new Promise((resolve, reject) => {
+        let readFile = (e: any) => {
+            let file = e.target.files[0];
+            if (!file) {
+                reject();
+            }
+            let reader = new FileReader();
+            reader.onload = () => {
+                resolve(JSON.parse(reader.result!.toString()));
+            }
+            reader.onerror = reject;
+            reader.readAsText(file);
+        }
+        fileInput.onchange = readFile;
+        fileInput.click();
+    }).finally(() => {
+        document.body.removeChild(fileInput);
+    });
+}
+
 // Elements
 
 const modeSelect = checkSelect(document.getElementById("gen-mode"));
@@ -66,6 +107,7 @@ const modeSelect = checkSelect(document.getElementById("gen-mode"));
 const runBtn = checkBtn(document.getElementById("btn-run"));
 const cancelBtn = checkBtn(document.getElementById("btn-cancel"));
 
+const selectOutput = checkNonNull(document.getElementById("select-output"));
 const importBtn = checkBtn(document.getElementById("btn-select-import"));
 const exportBtn = checkBtn(document.getElementById("btn-select-export"));
 const clearBtn = checkBtn(document.getElementById("btn-select-clear"));
@@ -75,6 +117,34 @@ const progressLabel = checkNonNull(document.getElementById("gen-progress-label")
 const remTimeLabel = checkNonNull(document.getElementById("gen-rem-time-label"));
 const genOutput = checkNonNull(document.getElementById("gen-output"));
 const genInfo = checkNonNull(document.getElementById("gen-info"));
+
+
+// Selected
+
+let selected: Puzzle.Solution | null = null;
+
+function setSelected(sol: Puzzle.Solution) {
+    rmChildren(selectOutput);
+    selectOutput.appendChild(sol.render());
+    selected = sol;
+}
+
+clearBtn.onclick = () => {
+    rmChildren(selectOutput);
+}
+
+importBtn.onclick = async () => {
+    let obj = await importJson();
+    let sol = Puzzle.Solution.import(obj as Puzzle.ExternalFormat);
+    setSelected(sol);
+}
+
+exportBtn.onclick = () => {
+    if (selected) {
+        const filename = `${selected.matrix.rows}x${selected.matrix.cols}(${selected.matrix.links}) ${selected.statsString()}.json`;
+        exportJson(filename, selected.export());
+    }
+}
 
 
 // Generation
@@ -157,9 +227,13 @@ async function execWithFormData(genMode: Puzzle.GenMode, formData: FormData) {
             } else {
                 if (data.sol) {
                     let sol = Puzzle.Solution.deserialize(data.sol);
-                    genOutput.insertBefore(sol.render(), genOutput.firstChild);
+                    let el = sol.render();
+                    el.onclick = () => {
+                        setSelected(sol);
+                    };
+                    genOutput.insertBefore(el, genOutput.firstChild);
                     count++;
-                    showTitle(true, Puzzle.statsToString(sol.stats));
+                    showTitle(true, sol.statsString());
                     if (genOutput.children.length > 100) {
                         genOutput.lastChild?.remove();
                     }
