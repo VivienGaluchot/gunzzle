@@ -2,21 +2,29 @@
 
 import * as Puzzle from './puzzle.js';
 
+interface WorkerRequest {
+    // generate solutions
+    genInput?: Puzzle.GenInput,
+    // compute stats
+    statsInput?: Puzzle.SerializedSolution
+};
+
+interface WorkerResponse {
+    id: number,
+    // generate solutions
+    genOutput?: Puzzle.GenOutput,
+    // compute stats
+    statsOutput?: Puzzle.SolutionStats
+};
+
+// Internal
+
 function assert(isOk: boolean, ...message: any[]) {
     if (!isOk) {
         console.error("Assert failed:", ...message);
         throw new Error("Assert failed");
     }
 }
-
-interface WorkerRequest {
-    genInput?: Puzzle.GenInput
-};
-
-interface WorkerResponse {
-    id: number,
-    genOutput?: Puzzle.GenOutput,
-};
 
 async function getMessage(worker: Worker): Promise<WorkerResponse> {
     return new Promise((resolve, reject) => {
@@ -32,16 +40,11 @@ async function getMessage(worker: Worker): Promise<WorkerResponse> {
     });
 }
 
-function startBackend(): Worker {
-    return new Worker("lib/worker-backend.js", { type: "module" });
-}
+// API
 
-function stopBackend(worker: Worker) {
-    worker.terminate();
-}
-
-async function* puzzleGenerate(cancelPromise: Promise<undefined>, worker: Worker, input: Puzzle.GenInput): AsyncGenerator<Puzzle.GenOutput> {
+async function* puzzleGenerate(cancelPromise: Promise<undefined>, input: Puzzle.GenInput): AsyncGenerator<Puzzle.GenOutput> {
     let request: WorkerRequest = { genInput: input };
+    let worker = new Worker("lib/worker-backend.js", { type: "module" });
     worker.postMessage(request);
     let lastId = null;
     try {
@@ -70,4 +73,26 @@ async function* puzzleGenerate(cancelPromise: Promise<undefined>, worker: Worker
     }
 }
 
-export { puzzleGenerate, startBackend, stopBackend, WorkerRequest, WorkerResponse }
+async function puzzleStats(sol: Puzzle.Solution): Promise<Puzzle.SolutionStats> {
+    let request: WorkerRequest = { statsInput: sol.serialize() };
+    let worker = new Worker("lib/worker-backend.js", { type: "module" });
+    worker.postMessage(request);
+    let stats: Puzzle.SolutionStats;
+    try {
+        let response = await getMessage(worker);
+        if (response.statsOutput) {
+            stats = response.statsOutput;
+        } else {
+            console.log("unexpected worker response", response);
+            throw new Error("unexpected worker response");
+        }
+    } catch (error) {
+        console.error("Worker error", error);
+        throw new Error("worker error");
+    } finally {
+        worker.terminate();
+    }
+    return stats;
+}
+
+export { puzzleGenerate, puzzleStats, WorkerRequest, WorkerResponse }

@@ -351,6 +351,9 @@ interface SolutionStats {
 }
 
 function statsToString(stats: SolutionStats) {
+    if (stats.validCount == 0 && stats.almostValidCount == 0) {
+        return "-";
+    }
     let validCount = stats.validCount;
     let almostRate = stats.almostValidCount / stats.validCount;
     return `${validCount} x${almostRate.toFixed(0)}`;
@@ -840,7 +843,7 @@ class Solution {
     // import/export
 
     static import(obj: ExternalFormat) {
-        let instance = new WorkerSolution(obj.rows, obj.cols, obj.links);
+        let instance = new Solution(obj.rows, obj.cols, obj.links, { validCount: 0, almostValidCount: 0 });
         for (let id = 0; id < instance.matrix.array.length; id++) {
             instance.matrix.array[id] = 0;
         }
@@ -855,10 +858,7 @@ class Solution {
             setValue(piece.pos, Direction.Bottom, piece.bottom);
             setValue(piece.pos, Direction.Left, piece.left);
         }
-        console.log("Compute imported puzzle statistics...");
-        instance.trCompute({ maxValidCount: Infinity });
-        console.log("Done", statsToString(instance.stats));
-        return Solution.deserialize(instance.serialize());
+        return instance;
     }
 
     export(): ExternalFormat {
@@ -1014,4 +1014,10 @@ function* generate(input: GenInput): Generator<GenOutput> {
     }
 }
 
-export { generate, Solution, GenMode, GenInput, GenOutput, ExternalFormat }
+function stats(input: SerializedSolution): SolutionStats {
+    let sol = WorkerSolution.deserialize(input);
+    sol.trCompute({ maxValidCount: Infinity });
+    return sol.stats;
+}
+
+export { generate, stats, Solution, GenMode, GenInput, GenOutput, ExternalFormat, SerializedSolution, SolutionStats }

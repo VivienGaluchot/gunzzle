@@ -108,6 +108,8 @@ importBtn.onclick = async () => {
     let obj = await importJson();
     let sol = Puzzle.Solution.import(obj);
     setSelected(sol);
+    sol.stats = await WorkerFrontend.puzzleStats(sol);
+    setSelected(sol);
 };
 exportBtn.onclick = () => {
     if (selected) {
@@ -122,8 +124,9 @@ selectPreset.onchange = async () => {
         console.log("load preset at path", path);
         let response = await fetch(path);
         let obj = await response.json();
-        // TODO offload stat computation to worker
         let sol = Puzzle.Solution.import(obj);
+        setSelected(sol);
+        sol.stats = await WorkerFrontend.puzzleStats(sol);
         setSelected(sol);
     }
 };
@@ -197,7 +200,6 @@ async function execWithFormData(genMode, formData) {
     else {
         setPendingProgress(false);
     }
-    const backend = WorkerFrontend.startBackend();
     cancelBtn.disabled = false;
     let hasCanceled = false;
     let cancelPromise = new Promise((resolve, reject) => {
@@ -207,7 +209,7 @@ async function execWithFormData(genMode, formData) {
         };
     });
     try {
-        for await (let output of WorkerFrontend.puzzleGenerate(cancelPromise, backend, input)) {
+        for await (let output of WorkerFrontend.puzzleGenerate(cancelPromise, input)) {
             if (output.sol) {
                 let sol = Puzzle.Solution.deserialize(output.sol);
                 let el = sol.render();

@@ -1,12 +1,13 @@
 "use strict";
+;
+;
+// Internal
 function assert(isOk, ...message) {
     if (!isOk) {
         console.error("Assert failed:", ...message);
         throw new Error("Assert failed");
     }
 }
-;
-;
 async function getMessage(worker) {
     return new Promise((resolve, reject) => {
         worker.onmessage = (event) => {
@@ -20,14 +21,10 @@ async function getMessage(worker) {
         };
     });
 }
-function startBackend() {
-    return new Worker("lib/worker-backend.js", { type: "module" });
-}
-function stopBackend(worker) {
-    worker.terminate();
-}
-async function* puzzleGenerate(cancelPromise, worker, input) {
+// API
+async function* puzzleGenerate(cancelPromise, input) {
     let request = { genInput: input };
+    let worker = new Worker("lib/worker-backend.js", { type: "module" });
     worker.postMessage(request);
     let lastId = null;
     try {
@@ -59,4 +56,28 @@ async function* puzzleGenerate(cancelPromise, worker, input) {
         worker.terminate();
     }
 }
-export { puzzleGenerate, startBackend, stopBackend };
+async function puzzleStats(sol) {
+    let request = { statsInput: sol.serialize() };
+    let worker = new Worker("lib/worker-backend.js", { type: "module" });
+    worker.postMessage(request);
+    let stats;
+    try {
+        let response = await getMessage(worker);
+        if (response.statsOutput) {
+            stats = response.statsOutput;
+        }
+        else {
+            console.log("unexpected worker response", response);
+            throw new Error("unexpected worker response");
+        }
+    }
+    catch (error) {
+        console.error("Worker error", error);
+        throw new Error("worker error");
+    }
+    finally {
+        worker.terminate();
+    }
+    return stats;
+}
+export { puzzleGenerate, puzzleStats };
