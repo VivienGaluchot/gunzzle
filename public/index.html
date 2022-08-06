@@ -6,53 +6,72 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link rel="stylesheet" href="app.css">
     <title>Gunzzle</title>
-
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Roboto+Serif:opsz,wght@8..144,400;8..144,630&display=swap" rel="stylesheet">
-
     <script src="app.js" defer type="module"></script>
 </head>
 
 <body>
     <h1>Gunzzle</h1>
     <main>
-        <section>
-            <p>Generate puzzle configuration.</p>
-            <form class="gen-form" onsubmit="return false;">
-                <label for="form-rows">Rows</label>
-                <input id="form-rows" type="number" name="row_count" value="3" min="1" max="100" />
-                <label for="form-cols">Cols</label>
-                <input id="form-cols" type="number" name="col_count" value="3" min="1" max="100" />
-                <label for="form-fr">Links</label>
-                <input id="form-fr" type="number" name="link_count" value="3" min="1" max="100" />
-                <hr>
-                <label for="form-mode">Solver mode</label>
-                <select id="form-mode" name="mode">
-                    <option value="brt">Brute force</option>
-                    <option value="gen" selected>Genetic</option>
-                </select>
-                <label for="form-cutoff">Cutoff</label>
-                <input id="form-cutoff" type="number" name="valid_count_cutoff" value="1000" min="1" />
-                <div class="help">Initial max number of valid solutions.</div>
-                <label for="form-heur">Target unique</label>
-                <input id="form-heur" type="checkbox" name="target_unique">
-                <div class="help">Get to unique solution puzzle faster. Will skip potential good non unique solutions. Not used in Genetic solver mode.</div>
-            </form>
-            <div class="progress-bar">
-                <div id="gen-progress-label">-</div>
-                <div id="gen-rem-time-label">-</div>
-                <progress id="gen-progress" max="100" value="0"></progress>
+        <section class="top">
+            <div>
+                <div class="tool-bar">
+                    <label class="grow" for="gen-mode">Solver mode</label>
+                    <select id="gen-mode" name="mode">
+                        <option value="brt">Brute force</option>
+                        <option value="gen" selected>Genetic</option>
+                    </select>
+                </div>
+
+                <form class="gen-form" onsubmit="return false;">
+                    <label for="form-rows">Rows</label>
+                    <input id="form-rows" type="number" name="row_count" value="3" min="1" max="100" />
+                    <label for="form-cols">Cols</label>
+                    <input id="form-cols" type="number" name="col_count" value="3" min="1" max="100" />
+                    <label for="form-fr">Links</label>
+                    <input id="form-fr" type="number" name="link_count" value="3" min="1" max="100" />
+                    <hr>
+
+                    <label for="form-cutoff">Cutoff</label>
+                    <input id="form-cutoff" type="number" name="valid_count_cutoff" value="1000" min="1" />
+                    <div class="help">Initial max number of valid solutions.</div>
+
+                    <div class="checkbox-input">
+                        <label class="brt-only" hidden for="form-heur">Target unique</label>
+                        <input class="brt-only" hidden id="form-heur" type="checkbox" name="target_unique">
+                    </div>
+                    <div class="brt-only help" hidden>Get to unique solution puzzle faster. Will skip potential good non unique solutions.</div>
+
+                    <div class="checkbox-input">
+                        <label class="gen-only" hidden for="form-use-select">Start from selection</label>
+                        <input class="gen-only" hidden id="form-use-select" type="checkbox" name="use_selection">
+                    </div>
+                    <div class="gen-only help" hidden>Restart generation from the puzzle selected.</div>
+                </form>
+
+                <div class="tool-bar">
+                    <button id="btn-run" class="grow primary">Run</button>
+                    <button id="btn-cancel" class="grey" disabled>Cancel</button>
+                </div>
             </div>
-            <div class="gen-info">-</div>
-            <div class="btn-bar">
-                <button id="btn-run">Run</button>
-                <button id="btn-cancel" class="grey" disabled>Cancel</button>
+            <div class="select-panel">
+                <div class="tool-bar">
+                    <label class="grow">Selection</label>
+                    <button id="btn-select-load">Import</button>
+                    <button id="btn-select-export">Export</button>
+                    <button id="btn-select-clear">Clear</button>
+                </div>
+                <div id="select-output" class="svg-area"></div>
             </div>
         </section>
 
-        <section class="wide">
-            <div class="gen-output"></div>
+        <section>
+            <div id="gen-info"></div>
+            <div class="progress-bar">
+                <div id="gen-progress-label"></div>
+                <div id="gen-rem-time-label"></div>
+                <progress id="gen-progress" max="100" value="0"></progress>
+            </div>
+            <div id="gen-output" class="svg-area"></div>
         </section>
     </main>
     <footer>

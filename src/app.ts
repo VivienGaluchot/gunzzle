@@ -1,8 +1,16 @@
 "use strict"
 
+// TODO
+// - Export to JSON
+// - Start generation based on JSON import
+// - Save in local storage on demand
+// - 2*3 symmetry adjustment
+
 import * as Puzzle from './lib/puzzle.js';
 
 const BASE_TITLE = document.title;
+
+// Utils
 
 function checkNonNull(element: HTMLElement | null): HTMLElement {
     if (element == null) {
@@ -27,7 +35,19 @@ function checkBtn(element: HTMLElement | null): HTMLButtonElement {
     return element;
 }
 
-async function execWithFormData(formData: FormData, output: Element, info: HTMLElement) {
+function checkSelect(element: HTMLElement | null): HTMLSelectElement {
+    if (element == null) {
+        throw new Error("missing element");
+    }
+    if (!(element instanceof HTMLSelectElement)) {
+        throw new Error("wrong element type");
+    }
+    return element;
+}
+
+// Generation
+
+async function execWithFormData(genMode: Puzzle.GenMode, formData: FormData, output: Element, info: HTMLElement) {
     let cancelBtn = checkBtn(document.getElementById("btn-cancel"));
     let progressBar = checkNonNull(document.getElementById("gen-progress"));
     let progressLabel = checkNonNull(document.getElementById("gen-progress-label"));
@@ -111,22 +131,9 @@ async function execWithFormData(formData: FormData, output: Element, info: HTMLE
     let links = getIntProp("link_count");
     let validCountCutoff = getIntProp("valid_count_cutoff");
     let targetUnique = formData.has("target_unique");
-    let mode = getStrProp("mode");
 
-    let genMode: Puzzle.GenMode;
-    let isProgressAvailable: boolean;
-    if (mode == "brt") {
-        genMode = Puzzle.GenMode.BruteForce;
-        isProgressAvailable = true;
-    } else if (mode == "gen") {
-        genMode = Puzzle.GenMode.Genetic;
-        isProgressAvailable = false;
-    } else {
-        throw new Error(`mode value invalid: ${mode}`);
-    }
-
+    let isProgressAvailable = genMode == Puzzle.GenMode.BruteForce;
     rmChildren(output);
-
     let count = 0;
     showTitle(true, "");
     showInfo("Running ...");
@@ -205,14 +212,30 @@ async function execWithFormData(formData: FormData, output: Element, info: HTMLE
 }
 
 
-async function formSubmit(el: Element, runBtn: HTMLButtonElement) {
+// Gen mode
+
+let getMode = (modeSelect: HTMLSelectElement) => {
+    if (modeSelect.value == "brt") {
+        return Puzzle.GenMode.BruteForce;
+    } else if (modeSelect.value == "gen") {
+        return Puzzle.GenMode.Genetic;
+    } else {
+        throw new Error(`mode value invalid: ${modeSelect.value}`);
+    }
+};
+
+
+// Form
+
+async function formSubmit(el: Element, runBtn: HTMLButtonElement, modeSelect: HTMLSelectElement) {
     let toEnable = new Set<HTMLButtonElement | HTMLInputElement | HTMLSelectElement>();
     console.info("run...");
     try {
         runBtn.disabled = true;
-        let output = checkNonNull(document.querySelector(".gen-output"));
+        modeSelect.disabled = true;
+        let output = checkNonNull(document.getElementById("gen-output"));
         rmChildren(output);
-        let info = checkNonNull(document.querySelector(".gen-info"));
+        let info = checkNonNull(document.getElementById("gen-info"));
         rmChildren(info);
 
         if (!(el instanceof HTMLFormElement)) {
@@ -227,7 +250,7 @@ async function formSubmit(el: Element, runBtn: HTMLButtonElement) {
                 }
             }
         }
-        await execWithFormData(data, output, info);
+        await execWithFormData(getMode(modeSelect), data, output, info);
         console.info("done");
     } catch (error) {
         console.error("execution failed", error);
@@ -236,15 +259,43 @@ async function formSubmit(el: Element, runBtn: HTMLButtonElement) {
             el.disabled = false;
         }
         runBtn.disabled = false;
+        modeSelect.disabled = false;
     }
 }
 
+// Bind
 
-// bind
-
+const modeSelect = checkSelect(document.getElementById("gen-mode"));
 const runBtn = checkBtn(document.getElementById("btn-run"));
+const importBtn = checkBtn(document.getElementById("btn-select-import"));
+const exportBtn = checkBtn(document.getElementById("btn-select-export"));
+const clearBtn = checkBtn(document.getElementById("btn-select-clear"));
+
+
+let onGenModeUpdate = () => {
+    let setHidden = (cls: string, isHidden: boolean) => {
+        for (let el of document.getElementsByClassName(cls)) {
+            if (el instanceof HTMLElement) {
+                el.hidden = isHidden;
+            }
+        }
+    }
+    let mode = getMode(modeSelect);
+    if (mode == Puzzle.GenMode.BruteForce) {
+        setHidden("gen-only", true);
+        setHidden("brt-only", false);
+    }
+    if (mode == Puzzle.GenMode.Genetic) {
+        setHidden("gen-only", false);
+        setHidden("brt-only", true);
+    }
+};
+
+modeSelect.onchange = onGenModeUpdate;
+onGenModeUpdate();
+
 runBtn.onclick = () => {
     for (let el of document.getElementsByClassName("gen-form")) {
-        formSubmit(el, runBtn);
+        formSubmit(el, runBtn, modeSelect);
     }
 };
