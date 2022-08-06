@@ -786,7 +786,7 @@ class Solution {
         let group = new Svg.Group();
         frame.appendChild(group);
 
-        frame.safeView = new Maths.Rect(new Maths.Vector(-2, -2), new Maths.Vector(2 + this.matrix.cols * 10, 2 + this.matrix.rows * 10));
+        frame.safeView = new Maths.Rect(new Maths.Vector(-1, -2), new Maths.Vector(2 + this.matrix.cols * 10, 3 + this.matrix.rows * 10));
         for (let pos of this.matrix.everyPos()) {
             let piece = new Svg.Group();
             piece.domEl.classList.add("piece");

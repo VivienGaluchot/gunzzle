@@ -88,7 +88,7 @@ class SvgFrame extends SvgNode {
     // safe area, always drawn for all aspect ratios
     set safeView(value) {
         this.internalSafeView = value;
-        this.setAttribute("viewBox", `${value.pos.x} ${value.pos.x} ${value.size.x} ${value.size.y}`);
+        this.setAttribute("viewBox", `${value.pos.x} ${value.pos.y} ${value.size.x} ${value.size.y}`);
     }
     get safeView() {
         return this.internalSafeView;

@@ -35,15 +35,15 @@
                     <input id="form-cutoff" type="number" name="valid_count_cutoff" value="1000" min="1" />
                     <div class="help">Initial max number of valid solutions.</div>
 
-                    <div class="checkbox-input">
-                        <label class="brt-only" hidden for="form-heur">Target unique</label>
-                        <input class="brt-only" hidden id="form-heur" type="checkbox" name="target_unique">
+                    <div class="brt-only checkbox-input" hidden>
+                        <label for="form-heur">Target unique</label>
+                        <input id="form-heur" type="checkbox" name="target_unique">
                     </div>
                     <div class="brt-only help" hidden>Get to unique solution puzzle faster. Will skip potential good non unique solutions.</div>
 
-                    <div class="checkbox-input">
-                        <label class="gen-only" hidden for="form-use-select">Start from selection</label>
-                        <input class="gen-only" hidden id="form-use-select" type="checkbox" name="use_selection">
+                    <div class="gen-only checkbox-input" hidden>
+                        <label for="form-use-select">Start from selection</label>
+                        <input id="form-use-select" type="checkbox" name="use_selection">
                     </div>
                     <div class="gen-only help" hidden>Restart generation from the puzzle selected.</div>
                 </form>
@@ -56,7 +56,7 @@
             <div class="select-panel">
                 <div class="tool-bar">
                     <label class="grow">Selection</label>
-                    <button id="btn-select-load">Import</button>
+                    <button id="btn-select-import">Import</button>
                     <button id="btn-select-export">Export</button>
                     <button id="btn-select-clear">Clear</button>
                 </div>

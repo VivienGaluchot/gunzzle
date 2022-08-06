@@ -45,42 +45,68 @@ function checkSelect(element: HTMLElement | null): HTMLSelectElement {
     return element;
 }
 
+function getIntProp(formData: FormData, name: string): number {
+    if (!formData.has(name)) {
+        throw new Error(`form property ${name} missing`);
+    }
+    let prop = Number(formData.get(name));
+    if (!Number.isFinite(prop)) {
+        throw new Error(`form property ${name} is non finite: ${prop}`);
+    }
+    if (!Number.isInteger(prop)) {
+        throw new Error(`form property ${name} is not an integer: ${prop}`);
+    }
+    return Number(prop);
+}
+
+// Elements
+
+const modeSelect = checkSelect(document.getElementById("gen-mode"));
+
+const runBtn = checkBtn(document.getElementById("btn-run"));
+const cancelBtn = checkBtn(document.getElementById("btn-cancel"));
+
+const importBtn = checkBtn(document.getElementById("btn-select-import"));
+const exportBtn = checkBtn(document.getElementById("btn-select-export"));
+const clearBtn = checkBtn(document.getElementById("btn-select-clear"));
+
+const progressBar = checkNonNull(document.getElementById("gen-progress"));
+const progressLabel = checkNonNull(document.getElementById("gen-progress-label"));
+const remTimeLabel = checkNonNull(document.getElementById("gen-rem-time-label"));
+const genOutput = checkNonNull(document.getElementById("gen-output"));
+const genInfo = checkNonNull(document.getElementById("gen-info"));
+
+
 // Generation
 
-async function execWithFormData(genMode: Puzzle.GenMode, formData: FormData, output: Element, info: HTMLElement) {
-    let cancelBtn = checkBtn(document.getElementById("btn-cancel"));
-    let progressBar = checkNonNull(document.getElementById("gen-progress"));
-    let progressLabel = checkNonNull(document.getElementById("gen-progress-label"));
-    let remTimeLabel = checkNonNull(document.getElementById("gen-rem-time-label"));
+async function execWithFormData(genMode: Puzzle.GenMode, formData: FormData) {
 
     // info
 
-    let infoSolution = "";
+    let titleInfo = "";
 
     function showTitle(isRunning: boolean, solution: string | null) {
         if (solution) {
-            infoSolution = solution;
+            titleInfo = solution;
         }
         if (isRunning) {
-            document.title = `${BASE_TITLE} | ⌛ ${infoSolution}`;
+            document.title = `${BASE_TITLE} | ⌛ ${titleInfo}`;
         } else {
-            document.title = `${BASE_TITLE} | ${infoSolution}`;
+            document.title = `${BASE_TITLE} | ${titleInfo}`;
         }
     }
 
     function showInfo(infoState: string) {
-        info.innerText = infoState;
+        genInfo.innerText = infoState;
     }
 
     // progress
 
-    let launchTimeInMs = 0;
+    let launchTimeInMs = Date.now();
 
     function setProgressPercent(progress: number) {
         let remTimeInMs = 0;
-        if (progress == 0) {
-            launchTimeInMs = Date.now();
-        } else {
+        if (progress != 0) {
             let dt = Date.now() - launchTimeInMs;
             let etaInMs = dt * (100 / progress);
             remTimeInMs = etaInMs - dt;
@@ -91,49 +117,27 @@ async function execWithFormData(genMode: Puzzle.GenMode, formData: FormData, out
         remTimeLabel.innerText = `${remTimeInMin.toFixed(1)} min left`;
     }
 
-    function setProgress(isDone: boolean) {
+    function setPendingProgress(isDone: boolean) {
         if (!isDone) {
             progressBar.removeAttribute("value");
         } else {
             progressBar.setAttribute("value", "0");
         }
-        progressLabel.innerText = `-`;
-        remTimeLabel.innerText = `-`;
-    }
-
-    // form utils
-
-    function getStrProp(name: string): string {
-        if (!formData.has(name)) {
-            throw new Error(`form property ${name} missing`);
-        }
-        return formData.get(name)!.toString();
-    }
-
-    function getIntProp(name: string): number {
-        if (!formData.has(name)) {
-            throw new Error(`form property ${name} missing`);
-        }
-        let prop = Number(formData.get(name));
-        if (!Number.isFinite(prop)) {
-            throw new Error(`form property ${name} is non finite: ${prop}`);
-        }
-        if (!Number.isInteger(prop)) {
-            throw new Error(`form property ${name} is not an integer: ${prop}`);
-        }
-        return Number(prop);
+        progressLabel.innerText = ``;
+        remTimeLabel.innerText = ``;
     }
 
     // main
 
-    let rows = getIntProp("row_count");
-    let cols = getIntProp("col_count");
-    let links = getIntProp("link_count");
-    let validCountCutoff = getIntProp("valid_count_cutoff");
-    let targetUnique = formData.has("target_unique");
+    const rows = getIntProp(formData, "row_count");
+    const cols = getIntProp(formData, "col_count");
+    const links = getIntProp(formData, "link_count");
+    const validCountCutoff = getIntProp(formData, "valid_count_cutoff");
+    const targetUnique = formData.has("target_unique");
+    const isProgressAvailable = genMode == Puzzle.GenMode.BruteForce;
 
-    let isProgressAvailable = genMode == Puzzle.GenMode.BruteForce;
-    rmChildren(output);
+    rmChildren(genOutput);
+    rmChildren(genInfo);
     let count = 0;
     showTitle(true, "");
     showInfo("Running ...");
@@ -141,36 +145,23 @@ async function execWithFormData(genMode: Puzzle.GenMode, formData: FormData, out
     if (genMode == Puzzle.GenMode.BruteForce) {
         setProgressPercent(0);
     } else {
-        setProgress(false);
+        setPendingProgress(false);
     }
 
     let worker = new Worker("worker.js", { type: "module" });
     let promise = new Promise((resolve, reject) => {
-        cancelBtn.onclick = () => {
-            worker.terminate();
-            if (!isProgressAvailable) {
-                setProgress(true);
-            }
-            resolve("canceled");
-        };
         worker.onmessage = (event) => {
             let data: Puzzle.GenOutput = event.data;
             if (data == null) {
-                if (isProgressAvailable) {
-                    setProgressPercent(100);
-                } else {
-                    setProgress(true);
-                }
-                worker.terminate();
                 resolve("success");
             } else {
                 if (data.sol) {
                     let sol = Puzzle.Solution.deserialize(data.sol);
-                    output.insertBefore(sol.render(), output.firstChild);
+                    genOutput.insertBefore(sol.render(), genOutput.firstChild);
                     count++;
                     showTitle(true, Puzzle.statsToString(sol.stats));
-                    if (count > 100) {
-                        output.lastChild?.remove();
+                    if (genOutput.children.length > 100) {
+                        genOutput.lastChild?.remove();
                     }
                 }
                 if (isProgressAvailable && data.progress) {
@@ -188,15 +179,26 @@ async function execWithFormData(genMode: Puzzle.GenMode, formData: FormData, out
             console.error("worker error", event);
             reject("worker error");
         };
+        cancelBtn.onclick = () => {
+            resolve("canceled");
+        };
     }).then((state) => {
-        showTitle(false, null);
-        showInfo(`Done, ${state}`);
+        if (isProgressAvailable) {
+            setProgressPercent(100);
+        }
+        showInfo(`Done, ${state}`)
+    }).catch((reason) => {
+        showInfo(`Error, ${reason}`);
+    }).finally(() => {
+        worker.terminate();
+        showTitle(false, null);;
         cancelBtn.disabled = true;
-    }).catch(() => {
-        showTitle(false, null);
-        showInfo("Error");
-        cancelBtn.disabled = true;
+        cancelBtn.onclick = null;
+        if (!isProgressAvailable) {
+            setPendingProgress(true);
+        }
     });
+
     cancelBtn.disabled = false;
     let input: Puzzle.GenInput = {
         rows: rows,
@@ -214,7 +216,7 @@ async function execWithFormData(genMode: Puzzle.GenMode, formData: FormData, out
 
 // Gen mode
 
-let getMode = (modeSelect: HTMLSelectElement) => {
+function getMode(modeSelect: HTMLSelectElement) {
     if (modeSelect.value == "brt") {
         return Puzzle.GenMode.BruteForce;
     } else if (modeSelect.value == "gen") {
@@ -222,7 +224,7 @@ let getMode = (modeSelect: HTMLSelectElement) => {
     } else {
         throw new Error(`mode value invalid: ${modeSelect.value}`);
     }
-};
+}
 
 
 // Form
@@ -233,11 +235,6 @@ async function formSubmit(el: Element, runBtn: HTMLButtonElement, modeSelect: HT
     try {
         runBtn.disabled = true;
         modeSelect.disabled = true;
-        let output = checkNonNull(document.getElementById("gen-output"));
-        rmChildren(output);
-        let info = checkNonNull(document.getElementById("gen-info"));
-        rmChildren(info);
-
         if (!(el instanceof HTMLFormElement)) {
             throw new Error(`element is not a form ${el}`);
         }
@@ -250,7 +247,7 @@ async function formSubmit(el: Element, runBtn: HTMLButtonElement, modeSelect: HT
                 }
             }
         }
-        await execWithFormData(getMode(modeSelect), data, output, info);
+        await execWithFormData(getMode(modeSelect), data);
         console.info("done");
     } catch (error) {
         console.error("execution failed", error);
@@ -264,13 +261,6 @@ async function formSubmit(el: Element, runBtn: HTMLButtonElement, modeSelect: HT
 }
 
 // Bind
-
-const modeSelect = checkSelect(document.getElementById("gen-mode"));
-const runBtn = checkBtn(document.getElementById("btn-run"));
-const importBtn = checkBtn(document.getElementById("btn-select-import"));
-const exportBtn = checkBtn(document.getElementById("btn-select-export"));
-const clearBtn = checkBtn(document.getElementById("btn-select-clear"));
-
 
 let onGenModeUpdate = () => {
     let setHidden = (cls: string, isHidden: boolean) => {
