@@ -253,7 +253,7 @@ class FragmentMatrix {
                 this.array[idx] = fragmentNext(this.array[idx], this.links, offset);
             }
         }
-        console.log("Tilted", tiltCount, "over", this.array.length);
+        console.log("Tilted", tiltCount, "/", this.array.length);
     }
 
     * localEvolutions(): Generator<MatrixEvolution> {
@@ -777,7 +777,6 @@ class WorkerSolution {
                 }
             }
 
-            console.log("Tilt");
             this.matrix.setState(ultraBestState);
             this.matrix.tilt();
             trInput.maxValidCount = initialCutoff;
