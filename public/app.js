@@ -23,6 +23,15 @@ function checkBtn(element) {
     }
     return element;
 }
+function checkInput(element) {
+    if (element == null) {
+        throw new Error("missing element");
+    }
+    if (!(element instanceof HTMLInputElement)) {
+        throw new Error("wrong element type");
+    }
+    return element;
+}
 function checkSelect(element) {
     if (element == null) {
         throw new Error("missing element");
@@ -90,6 +99,8 @@ const runBtn = checkBtn(document.getElementById("btn-run"));
 const cancelBtn = checkBtn(document.getElementById("btn-cancel"));
 const selectOutput = checkNonNull(document.getElementById("select-output"));
 const selectPreset = checkSelect(document.getElementById("select-preset"));
+const selectShuffleCheckbox = checkInput(document.getElementById("select-shuffle"));
+const loadBtn = checkBtn(document.getElementById("btn-select-load"));
 const importBtn = checkBtn(document.getElementById("btn-select-import"));
 const exportBtn = checkBtn(document.getElementById("btn-select-export"));
 const progressBar = checkNonNull(document.getElementById("gen-progress"));
@@ -99,17 +110,19 @@ const genOutput = checkNonNull(document.getElementById("gen-output"));
 const genInfo = checkNonNull(document.getElementById("gen-info"));
 // Selected
 let selected = null;
-function setSelected(sol) {
+function showSelection(sol) {
     rmChildren(selectOutput);
-    selectOutput.appendChild(sol.render());
+    if (sol != null) {
+        selectOutput.appendChild(sol.render(selectShuffleCheckbox.checked));
+    }
     selected = sol;
 }
 importBtn.onclick = async () => {
     let obj = await importJson();
     let sol = Puzzle.Solution.import(obj);
-    setSelected(sol);
+    showSelection(sol);
     sol.stats = await WorkerFrontend.puzzleStats(sol);
-    setSelected(sol);
+    showSelection(sol);
 };
 exportBtn.onclick = () => {
     if (selected) {
@@ -117,7 +130,7 @@ exportBtn.onclick = () => {
         exportJson(filename, selected.export());
     }
 };
-selectPreset.onchange = async () => {
+loadBtn.onclick = async () => {
     let selected = selectPreset.options[selectPreset.selectedIndex];
     let path = selected.dataset.importPath;
     if (path) {
@@ -125,10 +138,16 @@ selectPreset.onchange = async () => {
         let response = await fetch(path);
         let obj = await response.json();
         let sol = Puzzle.Solution.import(obj);
-        setSelected(sol);
+        showSelection(sol);
         sol.stats = await WorkerFrontend.puzzleStats(sol);
-        setSelected(sol);
+        showSelection(sol);
     }
+    else {
+        showSelection(null);
+    }
+};
+selectShuffleCheckbox.onchange = async () => {
+    showSelection(selected);
 };
 // Generation
 async function execWithFormData(genMode, formData) {
@@ -212,9 +231,9 @@ async function execWithFormData(genMode, formData) {
         for await (let output of WorkerFrontend.puzzleGenerate(cancelPromise, input)) {
             if (output.sol) {
                 let sol = Puzzle.Solution.deserialize(output.sol);
-                let el = sol.render();
+                let el = sol.render(false);
                 el.onclick = () => {
-                    setSelected(sol);
+                    showSelection(sol);
                 };
                 genOutput.insertBefore(el, genOutput.firstChild);
                 count++;

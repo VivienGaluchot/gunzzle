@@ -253,9 +253,9 @@ a {
 }
 
 .select-panel {
-    display: grid;
-    grid-template-rows: auto 1fr;
+    display: flex;
     gap: 1rem;
+    flex-direction: column;
 }
 
 .gen-info {
@@ -276,15 +276,17 @@ a {
 }
 
 .svg-area .puzzle-solution {
-    min-height: 15rem;
     width: 100%;
     height: 100%;
 }
 
 #select-output {
+    flex-grow: 1;
     display: block;
     padding: 0;
     overflow: unset;
+    resize: vertical;
+    overflow: hidden;
 }
 
 #gen-output .puzzle-solution:hover {
@@ -301,6 +303,11 @@ a {
 .puzzle-solution:hover {
     background-color: #0002;
     border: 1px solid #000;
+}
+
+#select-output .puzzle-solution:hover {
+    background-color: transparent;
+    border: 1px solid transparent;
 }
 
 .puzzle-solution .stat-label {

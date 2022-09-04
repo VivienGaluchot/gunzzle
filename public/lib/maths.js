@@ -188,4 +188,44 @@ function getRandomInt(min, max) {
     max = Math.floor(max);
     return Math.floor(Math.random() * (max - min)) + min;
 }
-export { Vector, Rect, swipe, checkIsFinite, getRandomInt };
+function shuffle(array) {
+    for (var i = array.length - 1; i > 0; i--) {
+        var j = Math.floor(Math.random() * (i + 1));
+        var temp = array[i];
+        array[i] = array[j];
+        array[j] = temp;
+    }
+}
+class RNG {
+    constructor(seed) {
+        // LCG using GCC's constants
+        this.m = 0x80000000; // 2**31;
+        this.a = 1103515245;
+        this.c = 12345;
+        this.state = seed ? seed : Math.floor(Math.random() * (this.m - 1));
+    }
+    nextInt() {
+        this.state = (this.a * this.state + this.c) % this.m;
+        return this.state;
+    }
+    // returns in range [0,1]
+    nextFloat() {
+        return this.nextInt() / (this.m - 1);
+    }
+    // returns in range [start, max]: including start, including end
+    // can't modulu nextInt because of weak randomness in lower bits
+    nextRange(min, max) {
+        var rangeSize = 1 + max - min;
+        var randomUnder1 = this.nextInt() / this.m;
+        return min + Math.floor(randomUnder1 * rangeSize);
+    }
+    shuffle(array) {
+        for (var i = array.length - 1; i > 0; i--) {
+            var j = this.nextRange(0, i);
+            var temp = array[i];
+            array[i] = array[j];
+            array[j] = temp;
+        }
+    }
+}
+export { Vector, Rect, swipe, checkIsFinite, getRandomInt, shuffle, RNG };

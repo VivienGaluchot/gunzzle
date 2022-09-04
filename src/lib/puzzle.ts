@@ -329,6 +329,26 @@ class Lookup {
         this.active = [...this.origin];
     }
 
+    shuffle() {
+        // use deterministic RNG to always get the same shuffle
+        let seed = 1337;
+        let from = [];
+        let to = [];
+        for (let pos of this.matrix.everyPos()) {
+            for (let dir = Direction.Top; dir <= Direction.Left; dir++) {
+                seed += Math.abs(this.matrix.at(pos, dir));
+            }
+            from.push(pos);
+            to.push(pos);
+        }
+        let rng = new Maths.RNG(seed);
+        rng.shuffle(to);
+        for (let i = 0; i < from.length; i++) {
+            let r = rng.nextRange(0, ROTATION_COUNT - 1);
+            this.setTransform(from[i], to[i], r);
+        }
+    }
+
     setTransform(from: Pos, to: Pos, r: number) {
         for (let dir = Direction.Top; dir <= Direction.Left; dir++) {
             this.active[this.lookIndex(to, rotate(dir, r))] = this.origin[this.lookIndex(from, dir)];
@@ -881,11 +901,16 @@ class Solution {
 
     // display
 
-    render(): SVGElement {
+    render(shuffle: boolean): SVGElement {
         let frame = new Svg.SvgFrame();
         frame.domEl.classList.add("puzzle-solution");
         let group = new Svg.Group();
         frame.appendChild(group);
+
+        let lookUp = new Lookup(this.matrix);
+        if (shuffle) {
+            lookUp.shuffle();
+        }
 
         frame.safeView = new Maths.Rect(new Maths.Vector(-1, -2), new Maths.Vector(2 + this.matrix.cols * 10, 3 + this.matrix.rows * 10));
         for (let pos of this.matrix.everyPos()) {
@@ -901,7 +926,7 @@ class Solution {
                 new Maths.Vector(a, 9.5),
                 new Maths.Vector(1, a)];
             for (let id = Direction.Top; id <= Direction.Left; id++) {
-                let fr = this.matrix.at(pos, id);
+                let fr = lookUp.at(pos, id);
                 piece.appendChild(new Svg.Text(fr.toString(), txtPos[id].x, txtPos[id].y, { className: "fragment-label" }));
             }
 
