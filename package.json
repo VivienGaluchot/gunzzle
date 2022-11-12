@@ -1,7 +1,8 @@
 {
     "name": "gunzzle",
     "scripts": {
-        "build": "./node_modules/typescript/bin/tsc"
+        "build": "./node_modules/typescript/bin/tsc",
+        "dev_server": "http-server -p 8000"
     },
     "engines": {
         "npm": ">=9.0.0 <10.0.0",
@@ -9,5 +10,8 @@
     },
     "dependencies": {
         "typescript": "4.5.3"
+    },
+    "devDependencies": {
+        "http-server": "^14.1.1"
     }
 }

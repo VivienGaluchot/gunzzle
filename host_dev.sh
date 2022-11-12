@@ -1,2 +1,4 @@
-cd public
-python3 -m http.server 8000
+(
+    cd public
+    npm run dev_server
+)
