@@ -8,10 +8,7 @@ RUN apt-get update && \
 RUN useradd -m dev && echo "dev:dev" | chpasswd && adduser dev sudo
 USER dev
 WORKDIR /home/dev
-
-# prepare .ssh directory for github access
-RUN mkdir -p /home/dev/.ssh
-RUN chown -R dev:dev /home/dev/.ssh
+RUN echo "alias ll='ls -l'" >> .bashrc
 
 # install NodeJs
 RUN wget -qO- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.2/install.sh | bash
