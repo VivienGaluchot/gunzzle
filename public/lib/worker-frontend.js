@@ -24,6 +24,7 @@ async function getMessage(worker) {
 // API
 async function* puzzleGenerate(cancelPromise, input) {
     let request = { genInput: input };
+    console.debug("send worker request", request);
     let worker = new Worker("lib/worker-backend.js", { type: "module" });
     worker.postMessage(request);
     let lastId = null;
@@ -58,6 +59,7 @@ async function* puzzleGenerate(cancelPromise, input) {
 }
 async function puzzleStats(sol) {
     let request = { statsInput: sol.serialize() };
+    console.debug("send worker request", request);
     let worker = new Worker("lib/worker-backend.js", { type: "module" });
     worker.postMessage(request);
     let stats;

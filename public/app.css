@@ -210,7 +210,7 @@ button:active {
 select:disabled,
 input:disabled,
 button:disabled {
-    filter: brightness(.8);
+    filter: brightness(.6);
 }
 
 select,
@@ -289,7 +289,11 @@ a {
     overflow: hidden;
 }
 
-#gen-output .puzzle-solution:hover {
+#select-output .puzzle-solution {
+    max-height: 30rem;
+}
+
+#select-output .puzzle-solution:hover {
     cursor: pointer;
 }
 

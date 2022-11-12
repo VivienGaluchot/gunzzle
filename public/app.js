@@ -95,6 +95,10 @@ async function importJson() {
 }
 // Elements
 const modeSelect = checkSelect(document.getElementById("gen-mode"));
+const formUseSelection = checkInput(document.getElementById("form-use-select"));
+const formRows = checkInput(document.getElementById("form-rows"));
+const formCols = checkInput(document.getElementById("form-cols"));
+const formFr = checkInput(document.getElementById("form-fr"));
 const runBtn = checkBtn(document.getElementById("btn-run"));
 const cancelBtn = checkBtn(document.getElementById("btn-cancel"));
 const selectOutput = checkNonNull(document.getElementById("select-output"));
@@ -192,22 +196,39 @@ async function execWithFormData(genMode, formData) {
         remTimeLabel.innerText = ``;
     }
     // main
-    const rows = getIntProp(formData, "row_count");
-    const cols = getIntProp(formData, "col_count");
-    const links = getIntProp(formData, "link_count");
     const validCountCutoff = getIntProp(formData, "valid_count_cutoff");
     const targetUnique = (genMode == Puzzle.GenMode.BruteForce) && formData.has("target_unique");
     const useSelection = (genMode == Puzzle.GenMode.Genetic) && formData.has("use_selection");
+    let input;
+    if (useSelection) {
+        if (selected == null) {
+            showInfo("No selection");
+            return;
+        }
+        input = {
+            rows: 0,
+            cols: 0,
+            links: 0,
+            mode: genMode,
+            validCountCutoff: validCountCutoff,
+            targetUnique: targetUnique,
+            startFrom: selected.serialize(),
+        };
+    }
+    else {
+        const rows = getIntProp(formData, "row_count");
+        const cols = getIntProp(formData, "col_count");
+        const links = getIntProp(formData, "link_count");
+        input = {
+            rows: rows,
+            cols: cols,
+            links: links,
+            mode: genMode,
+            validCountCutoff: validCountCutoff,
+            targetUnique: targetUnique,
+        };
+    }
     const isProgressAvailable = genMode == Puzzle.GenMode.BruteForce;
-    let input = {
-        rows: rows,
-        cols: cols,
-        links: links,
-        mode: genMode,
-        validCountCutoff: validCountCutoff,
-        targetUnique: targetUnique,
-        startFrom: useSelection ? selected?.serialize() : undefined,
-    };
     rmChildren(genOutput);
     rmChildren(genInfo);
     let count = 0;
@@ -341,3 +362,10 @@ runBtn.onclick = () => {
         formSubmit(el, runBtn, modeSelect);
     }
 };
+let onFormUseSelectionUpdate = () => {
+    formRows.disabled = formUseSelection.checked;
+    formCols.disabled = formUseSelection.checked;
+    formFr.disabled = formUseSelection.checked;
+};
+formUseSelection.onchange = onFormUseSelectionUpdate;
+onFormUseSelectionUpdate();

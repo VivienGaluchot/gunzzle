@@ -119,7 +119,7 @@ class FragmentMatrix {
             idx = pos.col;
         }
         else if (pos.col == 0 && dir == Direction.Left) {
-            idx = this.rows + pos.row;
+            idx = this.cols + pos.row;
         }
         else if (dir == Direction.Top) {
             idx = this.rows + this.cols +
@@ -343,6 +343,8 @@ class Transform {
             almostValidCount: 0
         };
         this.recConstruct(flipSymmetry, { row: 0, col: 0 }, pieces, internalInput, output);
+        // Note: uncomment to validate recConstruct is returning
+        // same value as recConstructNonOptimized
         // let pieces2: Pos[] = [];
         // for (let pos of this.matrix.everyPos()) {
         //     pieces2.push(pos);
@@ -694,7 +696,7 @@ class Solution {
         }
         let setValue = (pos, dir, value) => {
             let initial = instance.matrix.at(pos, dir);
-            assert(initial == 0 || initial == value, "inconsistency detected", { pos, dir, initial, value });
+            assert(value != 0 && (initial == 0 || initial == value), "inconsistency detected", { pos, dir, initial, value });
             instance.matrix.setAt(pos, dir, value);
         };
         for (let piece of obj.pieces) {
@@ -726,6 +728,12 @@ class Solution {
     // display
     render(shuffle) {
         let frame = new Svg.SvgFrame();
+        frame.setAttribute("width", "200");
+        frame.setAttribute("height", "200");
+        let aspectRatio = this.matrix.cols / this.matrix.rows;
+        let height = 200;
+        frame.setAttribute("height", `${height}`);
+        frame.setAttribute("width", `${height * aspectRatio}`);
         frame.domEl.classList.add("puzzle-solution");
         let group = new Svg.Group();
         frame.appendChild(group);
