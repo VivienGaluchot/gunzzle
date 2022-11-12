@@ -1,8 +1,11 @@
 {
     "name": "gunzzle",
     "scripts": {
-        "tsc": "./node_modules/typescript/bin/tsc",
         "build": "./node_modules/typescript/bin/tsc"
+    },
+    "engines": {
+        "npm": ">=9.0.0 <10.0.0",
+        "node": ">=18.0.0 <19.0.0"
     },
     "dependencies": {
         "typescript": "4.5.3"
