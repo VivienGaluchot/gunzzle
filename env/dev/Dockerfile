@@ -10,10 +10,17 @@ USER dev
 WORKDIR /home/dev
 RUN echo "alias ll='ls -l'" >> .bashrc
 
-# install NodeJs
-RUN wget -qO- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.2/install.sh | bash
-SHELL ["/bin/bash", "--login", "-c"] 
-RUN nvm install 18 && nvm alias default && nvm install-latest-npm
-RUN node -v
+# install node
+ENV NODE_VERSION=18.12.1
+RUN wget -O - https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.2/install.sh | bash
+ENV NVM_DIR=/home/dev/.nvm
+RUN . "$NVM_DIR/nvm.sh" && \
+    nvm install ${NODE_VERSION} && \
+    nvm use v${NODE_VERSION} && \
+    nvm alias default v${NODE_VERSION} && \
+    nvm install-latest-npm
+ENV PATH="/home/dev/.nvm/versions/node/v${NODE_VERSION}/bin/:${PATH}"
+RUN node --version
+RUN npm --version
 
 ENTRYPOINT ["bash"]
