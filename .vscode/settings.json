@@ -1,0 +1,15 @@
+{
+    "editor.formatOnSave": true,
+    "terminal.integrated.profiles.linux": {
+        "bash": {
+            "path": "bash",
+            "icon": "terminal-bash"
+        }
+    },
+    "terminal.integrated.defaultProfile.linux": "bash",
+    "deno.enablePaths": [
+        "./src"
+    ],
+    "deno.config": "./deno.jsonc",
+    "deno.cache": "/home/dev/.deno"
+}
