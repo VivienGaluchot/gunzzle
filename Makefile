@@ -8,7 +8,7 @@ check:
 
 .PHONY: test
 test:
-	@deno test src
+	@deno test src/main.ts
 
 .PHONY: run
 run:

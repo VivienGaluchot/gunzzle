@@ -11,5 +11,14 @@
         "./src"
     ],
     "deno.config": "./deno.jsonc",
-    "deno.cache": "/home/dev/.deno"
+    "deno.cache": "/home/dev/.deno",
+    "[json]": {
+        "editor.defaultFormatter": "denoland.vscode-deno"
+    },
+    "[jsonc]": {
+        "editor.defaultFormatter": "denoland.vscode-deno"
+    },
+    "[typescript]": {
+        "editor.defaultFormatter": "denoland.vscode-deno"
+    }
 }
