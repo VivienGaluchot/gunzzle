@@ -3,6 +3,7 @@
         "noUncheckedIndexedAccess": true
     },
     "fmt": {
-        "indentWidth": 4
+        "indentWidth": 4,
+        "lineWidth": 100
     }
 }
