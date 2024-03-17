@@ -1,4 +1,4 @@
-import { Transformations } from "./template.ts";
+import * as tpl from "./template.ts";
 import { FixedSizeArray } from "./type.ts";
 
 // Slots
@@ -18,21 +18,19 @@ export type Slots<SlotCount extends number> = FixedSizeArray<SlotCount, Slot>;
 export class Piece<SlotCount extends number> {
     slots: Slots<SlotCount>;
     // list of all slots with transformations
-    slots_transformations: Slots<SlotCount>[];
+    slotsTransformations: Slots<SlotCount>[];
 
-    constructor(slots: Slots<SlotCount>, transformations: Transformations<SlotCount>) {
+    constructor(slots: Slots<SlotCount>, transformations: tpl.Transformations<SlotCount>) {
         this.slots = slots;
-        this.slots_transformations = [slots];
-        for (const transformation of transformations) {
-            const transformed = transformation.map((targetId) => {
+        this.slotsTransformations = transformations.map((transformation) => {
+            return transformation.map((targetId) => {
                 const targetSlot = this.slots[targetId];
                 if (targetSlot == undefined) {
                     throw new Error(`transformation value '${targetId}' out of range`);
                 }
                 return targetSlot;
             }) as Slots<SlotCount>;
-            this.slots_transformations.push(transformed);
-        }
+        });
     }
 
     toString(): string {
@@ -43,20 +41,48 @@ export class Piece<SlotCount extends number> {
 
 // Puzzles
 
-export class Puzzle<N extends number> {
-    pieces: Piece<N>[];
+export class Puzzle<PieceCount extends number, SlotCount extends number> {
+    template: tpl.Puzzle<PieceCount, SlotCount>;
+    pieces?: FixedSizeArray<PieceCount, Piece<SlotCount>>;
 
-    constructor(pieces: Piece<N>[]) {
+    constructor(template: tpl.Puzzle<PieceCount, SlotCount>) {
+        this.template = template;
+    }
+
+    withPieces(pieces: FixedSizeArray<PieceCount, Piece<SlotCount>>) {
         this.pieces = pieces;
+        return this;
     }
 
     toString(): string {
-        return this.pieces.map((piece) => piece.toString()).join(" ");
+        return this.pieces?.map((piece) => piece.toString()).join(" ") ?? "<no pieces>";
     }
 
-    count_permutations(): number {
-        // TODO
-        return 0;
+    countPermutations(): number {
+        if (!this.pieces) {
+            throw new Error("internal error");
+        }
+        return this.recCounter([], this.pieces);
+    }
+
+    private recCounter(fixedPieces: Slots<SlotCount>[], freePieces: Piece<SlotCount>[]): number {
+        let acc = 0;
+        for (const [freePieceIndex, freePiece] of freePieces.entries()) {
+            for (const piece of freePiece.slotsTransformations) {
+                // TODO check if ok with already fixed
+                const isOk = true;
+                if (isOk) {
+                    if (freePieces.length > 1) {
+                        const nextFree = [...freePieces];
+                        nextFree.splice(freePieceIndex, 1);
+                        acc += this.recCounter([...fixedPieces, piece], nextFree);
+                    } else {
+                        acc += 1;
+                    }
+                }
+            }
+        }
+        return acc;
     }
 }
 
@@ -72,30 +98,62 @@ Deno.test("new Piece", () => {
         slots_transformations: number[][],
     ) {
         assertEquals(
-            p.slots_transformations.map((tr) => tr.map((slot) => slot.value)),
+            p.slotsTransformations.map((tr) => tr.map((slot) => slot.value)),
             slots_transformations,
         );
     }
 
     // identity
-    check(new Piece([new Slot(0), new Slot(1)], []), [[0, 1]]);
-    check(new Piece([new Slot(3), new Slot(2), new Slot(-1)], []), [[3, 2, -1]]);
+    check(new Piece([new Slot(0), new Slot(1)], [[0, 1]]), [[0, 1]]);
+    check(new Piece([new Slot(3), new Slot(2), new Slot(-1)], [[0, 1, 2]]), [[3, 2, -1]]);
 
     // rotation
-    check(new Piece([new Slot(0), new Slot(1)], [[1, 0]]), [[0, 1], [1, 0]]);
-    check(new Piece([new Slot(4), new Slot(1)], [[1, 0]]), [[4, 1], [1, 4]]);
-    check(new Piece([new Slot(3), new Slot(2), new Slot(-1)], [[2, 0, 1], [1, 2, 0]]), [
+    check(new Piece([new Slot(0), new Slot(1)], [[0, 1], [1, 0]]), [[0, 1], [1, 0]]);
+    check(new Piece([new Slot(4), new Slot(1)], [[0, 1], [1, 0]]), [[4, 1], [1, 4]]);
+    check(new Piece([new Slot(3), new Slot(2), new Slot(-1)], [[0, 1, 2], [2, 0, 1], [1, 2, 0]]), [
         [3, 2, -1],
         [-1, 3, 2],
         [2, -1, 3],
     ]);
 });
 
+Deno.test("Puzzle.countPermutations", () => {
+    const s00 = new tpl.ValSlot("a", 2);
+    const s01 = new tpl.ValSlot("b", 2);
+    const s10 = new tpl.ValSlot("c", 2);
+    const s20 = new tpl.ValSlot("d", 2);
+
+    const trs: tpl.Transformations<2> = [[0, 1]];
+    const templateP1 = new tpl.Piece([s00, s01]).withTransformations(trs);
+    const templateP2 = new tpl.Piece([new tpl.RefSlot(s01), s10]).withTransformations(trs);
+    const templateP3 = new tpl.Piece([new tpl.RefSlot(s10), s20]).withTransformations(trs);
+    const templatePuzzle = new tpl.Puzzle([templateP1, templateP2, templateP3]);
+    assertEquals(templatePuzzle.toString(), "[a b] [*b c] [*c d]");
+
+    const p1 = new Piece([new Slot(-1), new Slot(1)], trs);
+    const p2 = new Piece([new Slot(-1), new Slot(1)], trs);
+    const p3 = new Piece([new Slot(-1), new Slot(1)], trs);
+    const puzzle = new Puzzle(templatePuzzle).withPieces([p1, p2, p3]);
+
+    assertEquals(puzzle.countPermutations(), 6);
+});
+
 Deno.test("Puzzle.toString", () => {
+    const s00 = new tpl.ValSlot("a", 2);
+    const s01 = new tpl.ValSlot("b", 2);
+    const s10 = new tpl.ValSlot("c", 2);
+    const s20 = new tpl.ValSlot("d", 2);
+
+    const trs: tpl.Transformations<2> = [[0, 1]];
+    const templateP1 = new tpl.Piece([s00, s01]).withTransformations(trs);
+    const templateP2 = new tpl.Piece([new tpl.RefSlot(s01), s10]).withTransformations(trs);
+    const templateP3 = new tpl.Piece([new tpl.RefSlot(s10), s20]).withTransformations(trs);
+    const templatePuzzle = new tpl.Puzzle([templateP1, templateP2, templateP3]);
+
     const p1 = new Piece([new Slot(0), new Slot(1)], []);
     const p2 = new Piece([new Slot(2), new Slot(3)], []);
     const p3 = new Piece([new Slot(4), new Slot(5)], []);
+    const puzzle = new Puzzle(templatePuzzle).withPieces([p1, p2, p3]);
 
-    const puzzle = new Puzzle([p1, p2, p3]);
     assertEquals(puzzle.toString(), "[0 1] [2 3] [4 5]");
 });

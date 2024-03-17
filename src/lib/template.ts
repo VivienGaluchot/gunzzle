@@ -78,7 +78,7 @@ export type Transformations<SlotCount extends number> = Transformation<SlotCount
 
 export class Piece<SlotCount extends number> {
     slots: Slots<SlotCount>;
-    // list of all possible transformations except identity one
+    // list of all possible transformations, must include identity
     transformations: Transformations<SlotCount>;
 
     constructor(slots: Slots<SlotCount>) {
@@ -87,7 +87,7 @@ export class Piece<SlotCount extends number> {
     }
 
     withTransformations(transformations: Transformations<SlotCount>) {
-        this.transformations.push(...transformations);
+        this.transformations = transformations;
         return this;
     }
 
@@ -146,10 +146,10 @@ function resolvePartialPiece<SlotCount extends number>(
 
 // Puzzles
 
-export class Puzzle<SlotCount extends number> {
-    pieces: Piece<SlotCount>[];
+export class Puzzle<PieceCount extends number, SlotCount extends number> {
+    pieces: FixedSizeArray<PieceCount, Piece<SlotCount>>;
 
-    constructor(pieces: Piece<SlotCount>[]) {
+    constructor(pieces: FixedSizeArray<PieceCount, Piece<SlotCount>>) {
         this.pieces = pieces;
     }
 
@@ -157,13 +157,16 @@ export class Puzzle<SlotCount extends number> {
         return this.pieces.map((piece) => piece.toString()).join(" ");
     }
 
-    *all(): Generator<instance.Puzzle<SlotCount>> {
+    *all(): Generator<instance.Puzzle<PieceCount, SlotCount>> {
         for (const piece of this.pieces) {
             piece.clean();
         }
         for (const partialPieces of this.recGenerator(this.pieces)) {
-            yield new instance.Puzzle(
-                partialPieces.map(resolvePartialPiece<SlotCount>),
+            yield new instance.Puzzle(this).withPieces(
+                partialPieces.map(resolvePartialPiece<SlotCount>) as FixedSizeArray<
+                    PieceCount,
+                    instance.Piece<SlotCount>
+                >,
             );
         }
     }
@@ -237,7 +240,7 @@ Deno.test("Puzzle.all", () => {
     const s00 = new ValSlot("a", 2);
     const s01 = new ValSlot("b", 1);
 
-    const transformations: Transformations<2> = [[1, 0]];
+    const transformations: Transformations<2> = [[0, 1], [1, 0]];
     const p1 = new Piece([s00, new RefSlot(s01)]).withTransformations(transformations);
     const p2 = new Piece([new RefSlot(s00), s01]).withTransformations(transformations);
     const puzzleTemplate = new Puzzle([p1, p2]);
@@ -245,7 +248,7 @@ Deno.test("Puzzle.all", () => {
     assertEquals(puzzleTemplate.toString(), "[a *b] [*a b]");
     assertEquals(
         [...puzzleTemplate.all()].map((puzzle) => {
-            return puzzle.pieces.map((piece) => {
+            return puzzle.pieces?.map((piece) => {
                 return piece.slots.map((slot) => {
                     return slot.value;
                 });
@@ -270,7 +273,7 @@ Deno.test("Puzzle.toString", () => {
     const s10 = new ValSlot("c", 2);
     const s20 = new ValSlot("d", 2);
 
-    const transformations: Transformations<2> = [[1, 0]];
+    const transformations: Transformations<2> = [[0, 1], [1, 0]];
     const p1 = new Piece([s00, s01]).withTransformations(transformations);
     const p2 = new Piece([new RefSlot(s01), s10]).withTransformations(transformations);
     const p3 = new Piece([new RefSlot(s10), s20]).withTransformations(transformations);

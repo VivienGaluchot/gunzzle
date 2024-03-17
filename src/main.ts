@@ -1,5 +1,5 @@
 import * as template from "./lib/template.ts";
-import * as instance from "./lib/instance.ts";
+// import * as instance from "./lib/instance.ts";
 
 const s00 = new template.ValSlot("a", 2);
 const s01 = new template.ValSlot("b", 2);
@@ -14,4 +14,4 @@ const puzzle = new template.Puzzle([p1, p2, p3]);
 
 console.log(puzzle.toString());
 
-new instance.Puzzle([]);
+// new instance.Puzzle(puzzle, []);
