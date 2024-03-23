@@ -66,8 +66,18 @@ export class Puzzle<PieceCount extends number, SlotCount extends number> {
         let acc = 0;
         for (const [freePieceIndex, freePiece] of freePieces.entries()) {
             for (const piece of freePiece.slotsTransformations) {
-                // TODO check if ok with already fixed
-                const isOk = true;
+                // check if piece can be placed against already fixed pieces
+                const pieceId = fixedPieces.length;
+                const links = assertDefined(this.template.piecesLinksToPrev[pieceId]);
+                let isOk = true;
+                for (const link of links) {
+                    const freeSlot = assertDefined(piece[link.slotId]);
+                    const fixedSlot = assertDefined(fixedPieces[link.to.pieceId]?.[link.to.slotId]);
+                    if (fixedSlot.value != (-1 * freeSlot.value)) {
+                        isOk = false;
+                        break;
+                    }
+                }
                 if (isOk) {
                     if (freePieces.length > 1) {
                         const nextFree = [...freePieces];
@@ -127,12 +137,37 @@ Deno.test("Puzzle.countPermutations", () => {
     const templatePuzzle = new tpl.Puzzle([templateP1, templateP2, templateP3]);
     assertEquals(templatePuzzle.toString(), "[a b] [*b c] [*c d]");
 
-    const p1 = new Piece([new Slot(-1), new Slot(1)], trs);
-    const p2 = new Piece([new Slot(-1), new Slot(1)], trs);
-    const p3 = new Piece([new Slot(-1), new Slot(1)], trs);
-    const puzzle = new Puzzle(templatePuzzle).withPieces([p1, p2, p3]);
+    {
+        const p1 = new Piece([new Slot(-1), new Slot(1)], trs);
+        const p2 = new Piece([new Slot(-1), new Slot(1)], trs);
+        const p3 = new Piece([new Slot(-1), new Slot(1)], trs);
+        const puzzle = new Puzzle(templatePuzzle).withPieces([p1, p2, p3]);
+        assertEquals(puzzle.countPermutations(), 6);
+    }
 
-    assertEquals(puzzle.countPermutations(), 6);
+    {
+        const p1 = new Piece([new Slot(1), new Slot(1)], trs);
+        const p2 = new Piece([new Slot(1), new Slot(1)], trs);
+        const p3 = new Piece([new Slot(1), new Slot(1)], trs);
+        const puzzle = new Puzzle(templatePuzzle).withPieces([p1, p2, p3]);
+        assertEquals(puzzle.countPermutations(), 0);
+    }
+
+    {
+        const p1 = new Piece([new Slot(1), new Slot(2)], trs);
+        const p2 = new Piece([new Slot(-2), new Slot(3)], trs);
+        const p3 = new Piece([new Slot(-3), new Slot(-1)], trs);
+        const puzzle = new Puzzle(templatePuzzle).withPieces([p1, p2, p3]);
+        assertEquals(puzzle.countPermutations(), 3);
+    }
+
+    {
+        const p1 = new Piece([new Slot(1), new Slot(2)], trs);
+        const p2 = new Piece([new Slot(-2), new Slot(3)], trs);
+        const p3 = new Piece([new Slot(-3), new Slot(4)], trs);
+        const puzzle = new Puzzle(templatePuzzle).withPieces([p1, p2, p3]);
+        assertEquals(puzzle.countPermutations(), 1);
+    }
 });
 
 Deno.test("Puzzle.toString", () => {
