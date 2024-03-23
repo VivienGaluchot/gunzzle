@@ -1,5 +1,5 @@
 import * as tpl from "./template.ts";
-import { FixedSizeArray } from "./type.ts";
+import { assertDefined, fixedMap, FixedSizeArray } from "./type.ts";
 
 // Slots
 
@@ -23,13 +23,13 @@ export class Piece<SlotCount extends number> {
     constructor(slots: Slots<SlotCount>, transformations: tpl.Transformations<SlotCount>) {
         this.slots = slots;
         this.slotsTransformations = transformations.map((transformation) => {
-            return transformation.map((targetId) => {
+            return fixedMap(transformation, (targetId) => {
                 const targetSlot = this.slots[targetId];
                 if (targetSlot == undefined) {
                     throw new Error(`transformation value '${targetId}' out of range`);
                 }
                 return targetSlot;
-            }) as Slots<SlotCount>;
+            });
         });
     }
 
@@ -59,10 +59,7 @@ export class Puzzle<PieceCount extends number, SlotCount extends number> {
     }
 
     countPermutations(): number {
-        if (!this.pieces) {
-            throw new Error("internal error");
-        }
-        return this.recCounter([], this.pieces);
+        return this.recCounter([], assertDefined(this.pieces));
     }
 
     private recCounter(fixedPieces: Slots<SlotCount>[], freePieces: Piece<SlotCount>[]): number {

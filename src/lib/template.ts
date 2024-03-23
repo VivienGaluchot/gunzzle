@@ -1,5 +1,5 @@
 import * as instance from "./instance.ts";
-import { FixedSizeArray } from "./type.ts";
+import { assertDefined, fixedMap, FixedSizeArray } from "./type.ts";
 
 // Slots
 
@@ -116,9 +116,7 @@ export class Piece<SlotCount extends number> {
             yield [];
         } else {
             for (const slot of first.all()) {
-                for (const slotRest of this.recGenerator(rest)) {
-                    yield [slot, ...slotRest];
-                }
+                for (const slotRest of this.recGenerator(rest)) yield [slot, ...slotRest];
             }
         }
     }
@@ -146,11 +144,50 @@ function resolvePartialPiece<SlotCount extends number>(
 
 // Puzzles
 
+interface SlotIndex {
+    pieceId: number;
+    slotId: number;
+}
+
+interface PieceLink {
+    slotId: number;
+    to: SlotIndex;
+}
+
 export class Puzzle<PieceCount extends number, SlotCount extends number> {
+    // piece list
     pieces: FixedSizeArray<PieceCount, Piece<SlotCount>>;
+    // links to other pieces
+    piecesLinks: FixedSizeArray<PieceCount, PieceLink[]>;
+    // links to other piece placed before in the `pieces` order
+    piecesLinksToPrev: FixedSizeArray<PieceCount, PieceLink[]>;
 
     constructor(pieces: FixedSizeArray<PieceCount, Piece<SlotCount>>) {
         this.pieces = pieces;
+        const slotMap = new Map<Slot, SlotIndex>();
+        for (const [pieceId, piece] of pieces.entries()) {
+            for (const [slotId, slot] of piece.slots.entries()) {
+                slotMap.set(slot, { pieceId: pieceId, slotId: slotId });
+            }
+        }
+        this.piecesLinks = fixedMap(pieces, () => []);
+        for (const [pieceId, piece] of pieces.entries()) {
+            for (const [slotId, slot] of piece.slots.entries()) {
+                if (slot instanceof RefSlot) {
+                    const refIndex = assertDefined(slotMap.get(slot.ref));
+                    assertDefined(this.piecesLinks[pieceId]).push({ slotId: slotId, to: refIndex });
+                    assertDefined(this.piecesLinks[refIndex.pieceId]).push({
+                        slotId: refIndex.slotId,
+                        to: { pieceId: pieceId, slotId: slotId },
+                    });
+                }
+            }
+        }
+        this.piecesLinksToPrev = fixedMap(this.piecesLinks, (links, pieceId) => {
+            return links.filter((value) => {
+                return value.to.pieceId < pieceId;
+            });
+        });
     }
 
     toString(): string {
@@ -163,10 +200,10 @@ export class Puzzle<PieceCount extends number, SlotCount extends number> {
         }
         for (const partialPieces of this.recGenerator(this.pieces)) {
             yield new instance.Puzzle(this).withPieces(
-                partialPieces.map(resolvePartialPiece<SlotCount>) as FixedSizeArray<
-                    PieceCount,
-                    instance.Piece<SlotCount>
-                >,
+                fixedMap(
+                    partialPieces as FixedSizeArray<PieceCount, PartialPiece<SlotCount>>,
+                    resolvePartialPiece<SlotCount>,
+                ),
             );
         }
     }
@@ -263,6 +300,43 @@ Deno.test("Puzzle.all", () => {
             [[1, -1], [-1, 1]],
             [[2, 1], [-2, -1]],
             [[2, -1], [-2, 1]],
+        ],
+    );
+});
+
+Deno.test("Puzzle.piecesLinks", () => {
+    const s00 = new ValSlot("a", 2);
+    const s01 = new ValSlot("b", 2);
+    const s10 = new ValSlot("c", 2);
+    const s20 = new ValSlot("d", 2);
+
+    const transformations: Transformations<2> = [[0, 1], [1, 0]];
+    const p1 = new Piece([s00, s01]).withTransformations(transformations);
+    const p2 = new Piece([new RefSlot(s01), s10]).withTransformations(transformations);
+    const p3 = new Piece([new RefSlot(s10), s20]).withTransformations(transformations);
+
+    const puzzle = new Puzzle([p1, p2, p3]);
+    assertEquals(
+        puzzle.pieces.map((_, index) => {
+            return puzzle.piecesLinks[index];
+        }),
+        [
+            [{ slotId: 1, to: { pieceId: 1, slotId: 0 } }],
+            [
+                { slotId: 0, to: { pieceId: 0, slotId: 1 } },
+                { slotId: 1, to: { pieceId: 2, slotId: 0 } },
+            ],
+            [{ slotId: 0, to: { pieceId: 1, slotId: 1 } }],
+        ],
+    );
+    assertEquals(
+        puzzle.pieces.map((_, index) => {
+            return puzzle.piecesLinksToPrev[index];
+        }),
+        [
+            [],
+            [{ slotId: 0, to: { pieceId: 0, slotId: 1 } }],
+            [{ slotId: 0, to: { pieceId: 1, slotId: 1 } }],
         ],
     );
 });
