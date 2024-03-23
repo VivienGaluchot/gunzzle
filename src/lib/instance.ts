@@ -124,6 +124,26 @@ Deno.test("new Piece", () => {
     ]);
 });
 
+Deno.test("Puzzle.toString", () => {
+    const s00 = new tpl.ValSlot("a", 2);
+    const s01 = new tpl.ValSlot("b", 2);
+    const s10 = new tpl.ValSlot("c", 2);
+    const s20 = new tpl.ValSlot("d", 2);
+
+    const trs: tpl.Transformations<2> = [[0, 1]];
+    const templateP1 = new tpl.Piece([s00, s01]).withTransformations(trs);
+    const templateP2 = new tpl.Piece([new tpl.RefSlot(s01), s10]).withTransformations(trs);
+    const templateP3 = new tpl.Piece([new tpl.RefSlot(s10), s20]).withTransformations(trs);
+    const templatePuzzle = new tpl.Puzzle([templateP1, templateP2, templateP3]);
+
+    const p1 = new Piece([new Slot(0), new Slot(1)], []);
+    const p2 = new Piece([new Slot(2), new Slot(3)], []);
+    const p3 = new Piece([new Slot(4), new Slot(5)], []);
+    const puzzle = new Puzzle(templatePuzzle).withPieces([p1, p2, p3]);
+
+    assertEquals(puzzle.toString(), "[0 1] [2 3] [4 5]");
+});
+
 Deno.test("Puzzle.countPermutations", () => {
     const s00 = new tpl.ValSlot("a", 2);
     const s01 = new tpl.ValSlot("b", 2);
@@ -168,24 +188,4 @@ Deno.test("Puzzle.countPermutations", () => {
         const puzzle = new Puzzle(templatePuzzle).withPieces([p1, p2, p3]);
         assertEquals(puzzle.countPermutations(), 1);
     }
-});
-
-Deno.test("Puzzle.toString", () => {
-    const s00 = new tpl.ValSlot("a", 2);
-    const s01 = new tpl.ValSlot("b", 2);
-    const s10 = new tpl.ValSlot("c", 2);
-    const s20 = new tpl.ValSlot("d", 2);
-
-    const trs: tpl.Transformations<2> = [[0, 1]];
-    const templateP1 = new tpl.Piece([s00, s01]).withTransformations(trs);
-    const templateP2 = new tpl.Piece([new tpl.RefSlot(s01), s10]).withTransformations(trs);
-    const templateP3 = new tpl.Piece([new tpl.RefSlot(s10), s20]).withTransformations(trs);
-    const templatePuzzle = new tpl.Puzzle([templateP1, templateP2, templateP3]);
-
-    const p1 = new Piece([new Slot(0), new Slot(1)], []);
-    const p2 = new Piece([new Slot(2), new Slot(3)], []);
-    const p3 = new Piece([new Slot(4), new Slot(5)], []);
-    const puzzle = new Puzzle(templatePuzzle).withPieces([p1, p2, p3]);
-
-    assertEquals(puzzle.toString(), "[0 1] [2 3] [4 5]");
 });
