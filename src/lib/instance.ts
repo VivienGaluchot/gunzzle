@@ -161,31 +161,31 @@ Deno.test("Puzzle.countPermutations", () => {
         const p1 = new Piece([new Slot(-1), new Slot(1)], trs);
         const p2 = new Piece([new Slot(-1), new Slot(1)], trs);
         const p3 = new Piece([new Slot(-1), new Slot(1)], trs);
-        const puzzle = new Puzzle(templatePuzzle).withPieces([p1, p2, p3]);
-        assertEquals(puzzle.countPermutations(), 6);
+        assertEquals(new Puzzle(templatePuzzle).withPieces([p1, p2, p3]).countPermutations(), 6);
+        assertEquals(new Puzzle(templatePuzzle).withPieces([p2, p1, p3]).countPermutations(), 6);
     }
 
     {
         const p1 = new Piece([new Slot(1), new Slot(1)], trs);
         const p2 = new Piece([new Slot(1), new Slot(1)], trs);
         const p3 = new Piece([new Slot(1), new Slot(1)], trs);
-        const puzzle = new Puzzle(templatePuzzle).withPieces([p1, p2, p3]);
-        assertEquals(puzzle.countPermutations(), 0);
+        assertEquals(new Puzzle(templatePuzzle).withPieces([p1, p2, p3]).countPermutations(), 0);
+        assertEquals(new Puzzle(templatePuzzle).withPieces([p2, p1, p3]).countPermutations(), 0);
     }
 
     {
         const p1 = new Piece([new Slot(1), new Slot(2)], trs);
         const p2 = new Piece([new Slot(-2), new Slot(3)], trs);
         const p3 = new Piece([new Slot(-3), new Slot(-1)], trs);
-        const puzzle = new Puzzle(templatePuzzle).withPieces([p1, p2, p3]);
-        assertEquals(puzzle.countPermutations(), 3);
+        assertEquals(new Puzzle(templatePuzzle).withPieces([p1, p2, p3]).countPermutations(), 3);
+        assertEquals(new Puzzle(templatePuzzle).withPieces([p2, p1, p3]).countPermutations(), 3);
     }
 
     {
         const p1 = new Piece([new Slot(1), new Slot(2)], trs);
         const p2 = new Piece([new Slot(-2), new Slot(3)], trs);
         const p3 = new Piece([new Slot(-3), new Slot(4)], trs);
-        const puzzle = new Puzzle(templatePuzzle).withPieces([p1, p2, p3]);
-        assertEquals(puzzle.countPermutations(), 1);
+        assertEquals(new Puzzle(templatePuzzle).withPieces([p1, p2, p3]).countPermutations(), 1);
+        assertEquals(new Puzzle(templatePuzzle).withPieces([p2, p1, p3]).countPermutations(), 1);
     }
 });
