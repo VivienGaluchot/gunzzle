@@ -5,20 +5,18 @@ import { assertDefined, fixedMap, FixedSizeArray } from "./type.ts";
 
 export class ValSlot {
     id: string;
-    count: number;
     generated?: number;
 
-    constructor(id: string, count: number) {
+    constructor(id: string) {
         this.id = id;
-        this.count = count;
     }
 
     toString(): string {
         return `${this.id}`;
     }
 
-    *all(): Generator<instance.Slot> {
-        for (let i = -this.count; i <= this.count; i++) {
+    *all(slotKind: number): Generator<instance.Slot> {
+        for (let i = -slotKind; i <= slotKind; i++) {
             if (i != 0) {
                 this.generated = i;
                 yield new instance.Slot(i);
@@ -98,8 +96,8 @@ export class Piece<SlotCount extends number> {
         return `[${slot_list}]`;
     }
 
-    *all(): Generator<PartialPiece<SlotCount>> {
-        for (const partial of this.recGenerator(this.slots)) {
+    *all(slotKind: number): Generator<PartialPiece<SlotCount>> {
+        for (const partial of this.recGenerator(slotKind, this.slots)) {
             if (partial.length != this.slots.length) {
                 throw new Error("internal error");
             }
@@ -110,13 +108,13 @@ export class Piece<SlotCount extends number> {
         }
     }
 
-    private *recGenerator(slots: Slot[]): Generator<PartialSlot[]> {
+    private *recGenerator(slotKind: number, slots: Slot[]): Generator<PartialSlot[]> {
         const [first, ...rest] = slots;
         if (first == undefined) {
             yield [];
         } else {
-            for (const slot of first.all()) {
-                for (const slotRest of this.recGenerator(rest)) yield [slot, ...slotRest];
+            for (const slot of first.all(slotKind)) {
+                for (const slotRest of this.recGenerator(slotKind, rest)) yield [slot, ...slotRest];
             }
         }
     }
@@ -194,11 +192,34 @@ export class Puzzle<PieceCount extends number, SlotCount extends number> {
         return this.pieces.map((piece) => piece.toString()).join(" ");
     }
 
-    *all(): Generator<instance.Puzzle<PieceCount, SlotCount>> {
+    getOneSolutionPuzzle(): instance.Puzzle<PieceCount, SlotCount> {
+        let value = 0;
+        const slotMap = new Map<ValSlot, number>();
+        for (const piece of this.pieces) {
+            for (const slot of piece.slots) {
+                if (slot instanceof ValSlot) {
+                    value++;
+                    slotMap.set(slot, value);
+                }
+            }
+        }
+        return new instance.Puzzle(this).withPieces(fixedMap(this.pieces, (piece) => {
+            const slots = fixedMap(piece.slots, (slot) => {
+                if (slot instanceof ValSlot) {
+                    return new instance.Slot(assertDefined(slotMap.get(slot)));
+                } else {
+                    return new instance.Slot(-1 * assertDefined(slotMap.get(slot.ref)));
+                }
+            });
+            return new instance.Piece(slots, piece.transformations);
+        }));
+    }
+
+    *all(slotKind: number): Generator<instance.Puzzle<PieceCount, SlotCount>> {
         for (const piece of this.pieces) {
             piece.clean();
         }
-        for (const partialPieces of this.recGenerator(this.pieces)) {
+        for (const partialPieces of this.recGenerator(slotKind, this.pieces)) {
             yield new instance.Puzzle(this).withPieces(
                 fixedMap(
                     partialPieces as FixedSizeArray<PieceCount, PartialPiece<SlotCount>>,
@@ -208,13 +229,16 @@ export class Puzzle<PieceCount extends number, SlotCount extends number> {
         }
     }
 
-    private *recGenerator(pieces: Piece<SlotCount>[]): Generator<PartialPiece<SlotCount>[]> {
+    private *recGenerator(
+        slotKind: number,
+        pieces: Piece<SlotCount>[],
+    ): Generator<PartialPiece<SlotCount>[]> {
         const [first, ...rest] = pieces;
         if (first == undefined) {
             yield [];
         } else {
-            for (const piece of first.all()) {
-                for (const pieceRest of this.recGenerator(rest)) {
+            for (const piece of first.all(slotKind)) {
+                for (const pieceRest of this.recGenerator(slotKind, rest)) {
                     yield [piece, ...pieceRest];
                 }
             }
@@ -228,24 +252,39 @@ export class Puzzle<PieceCount extends number, SlotCount extends number> {
 
 import { assertEquals } from "https://deno.land/std@0.217.0/assert/assert_equals.ts";
 
+Deno.test("Puzzle.toString", () => {
+    const s00 = new ValSlot("a");
+    const s01 = new ValSlot("b");
+    const s10 = new ValSlot("c");
+    const s20 = new ValSlot("d");
+
+    const transformations: Transformations<2> = [[0, 1], [1, 0]];
+    const p1 = new Piece([s00, s01]).withTransformations(transformations);
+    const p2 = new Piece([new RefSlot(s01), s10]).withTransformations(transformations);
+    const p3 = new Piece([new RefSlot(s10), s20]).withTransformations(transformations);
+
+    const puzzle = new Puzzle([p1, p2, p3]);
+    assertEquals(puzzle.toString(), "[a b] [*b c] [*c d]");
+});
+
 Deno.test("ValSlot.all", () => {
     assertEquals(
-        [...new ValSlot("a", 1).all()].map((slot) => slot.value),
+        [...new ValSlot("a").all(1)].map((slot) => slot.value),
         [-1, 1],
     );
     assertEquals(
-        [...new ValSlot("a", 2).all()].map((slot) => slot.value),
+        [...new ValSlot("a").all(2)].map((slot) => slot.value),
         [-2, -1, 1, 2],
     );
     assertEquals(
-        [...new ValSlot("a", 3).all()].map((slot) => slot.value),
+        [...new ValSlot("a").all(3)].map((slot) => slot.value),
         [-3, -2, -1, 1, 2, 3],
     );
 });
 
 Deno.test("Piece.all", () => {
-    const s00 = new ValSlot("a", 2);
-    const s01 = new ValSlot("b", 1);
+    const s00 = new ValSlot("a");
+    const s01 = new ValSlot("b");
     const p1 = new Piece<5>([
         new RefSlot(s00),
         s00,
@@ -255,27 +294,35 @@ Deno.test("Piece.all", () => {
     ]);
 
     const allResolved = [];
-    for (const piece of p1.all()) {
+    for (const piece of p1.all(2)) {
         allResolved.push(
             resolvePartialPiece(piece).slots.map((slot) => slot.value),
         );
     }
 
     assertEquals(allResolved, [
+        [2, -2, -2, 2, 2],
         [2, -2, -1, 1, 1],
         [2, -2, 1, -1, -1],
+        [2, -2, 2, -2, -2],
+        [1, -1, -2, 2, 2],
         [1, -1, -1, 1, 1],
         [1, -1, 1, -1, -1],
+        [1, -1, 2, -2, -2],
+        [-1, 1, -2, 2, 2],
         [-1, 1, -1, 1, 1],
         [-1, 1, 1, -1, -1],
+        [-1, 1, 2, -2, -2],
+        [-2, 2, -2, 2, 2],
         [-2, 2, -1, 1, 1],
         [-2, 2, 1, -1, -1],
+        [-2, 2, 2, -2, -2],
     ]);
 });
 
 Deno.test("Puzzle.all", () => {
-    const s00 = new ValSlot("a", 2);
-    const s01 = new ValSlot("b", 1);
+    const s00 = new ValSlot("a");
+    const s01 = new ValSlot("b");
 
     const transformations: Transformations<2> = [[0, 1], [1, 0]];
     const p1 = new Piece([s00, new RefSlot(s01)]).withTransformations(transformations);
@@ -284,7 +331,7 @@ Deno.test("Puzzle.all", () => {
 
     assertEquals(puzzleTemplate.toString(), "[a *b] [*a b]");
     assertEquals(
-        [...puzzleTemplate.all()].map((puzzle) => {
+        [...puzzleTemplate.all(2)].map((puzzle) => {
             return puzzle.pieces?.map((piece) => {
                 return piece.slots.map((slot) => {
                     return slot.value;
@@ -292,23 +339,31 @@ Deno.test("Puzzle.all", () => {
             });
         }),
         [
+            [[-2, 2], [2, -2]],
             [[-2, 1], [2, -1]],
             [[-2, -1], [2, 1]],
+            [[-2, -2], [2, 2]],
+            [[-1, 2], [1, -2]],
             [[-1, 1], [1, -1]],
             [[-1, -1], [1, 1]],
+            [[-1, -2], [1, 2]],
+            [[1, 2], [-1, -2]],
             [[1, 1], [-1, -1]],
             [[1, -1], [-1, 1]],
+            [[1, -2], [-1, 2]],
+            [[2, 2], [-2, -2]],
             [[2, 1], [-2, -1]],
             [[2, -1], [-2, 1]],
+            [[2, -2], [-2, 2]],
         ],
     );
 });
 
 Deno.test("Puzzle.piecesLinks", () => {
-    const s00 = new ValSlot("a", 2);
-    const s01 = new ValSlot("b", 2);
-    const s10 = new ValSlot("c", 2);
-    const s20 = new ValSlot("d", 2);
+    const s00 = new ValSlot("a");
+    const s01 = new ValSlot("b");
+    const s10 = new ValSlot("c");
+    const s20 = new ValSlot("d");
 
     const transformations: Transformations<2> = [[0, 1], [1, 0]];
     const p1 = new Piece([s00, s01]).withTransformations(transformations);
@@ -316,6 +371,7 @@ Deno.test("Puzzle.piecesLinks", () => {
     const p3 = new Piece([new RefSlot(s10), s20]).withTransformations(transformations);
 
     const puzzle = new Puzzle([p1, p2, p3]);
+    assertEquals(puzzle.toString(), "[a b] [*b c] [*c d]");
     assertEquals(
         puzzle.pieces.map((_, index) => {
             return puzzle.piecesLinks[index];
@@ -341,11 +397,11 @@ Deno.test("Puzzle.piecesLinks", () => {
     );
 });
 
-Deno.test("Puzzle.toString", () => {
-    const s00 = new ValSlot("a", 2);
-    const s01 = new ValSlot("b", 2);
-    const s10 = new ValSlot("c", 2);
-    const s20 = new ValSlot("d", 2);
+Deno.test("Puzzle.getOneSolutionPuzzle", () => {
+    const s00 = new ValSlot("a");
+    const s01 = new ValSlot("b");
+    const s10 = new ValSlot("c");
+    const s20 = new ValSlot("d");
 
     const transformations: Transformations<2> = [[0, 1], [1, 0]];
     const p1 = new Piece([s00, s01]).withTransformations(transformations);
@@ -354,4 +410,12 @@ Deno.test("Puzzle.toString", () => {
 
     const puzzle = new Puzzle([p1, p2, p3]);
     assertEquals(puzzle.toString(), "[a b] [*b c] [*c d]");
+    assertEquals(
+        puzzle.getOneSolutionPuzzle().pieces?.map((piece) => {
+            return piece.slots.map((slot) => {
+                return slot.value;
+            });
+        }),
+        [[1, 2], [-2, 3], [-3, 4]],
+    );
 });
