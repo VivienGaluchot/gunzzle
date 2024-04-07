@@ -4,7 +4,8 @@ all: check test run
 
 .PHONY: check
 check:
-	@deno check src/main.ts
+	@deno check src/cube.ts
+	@deno check src/test.ts
 
 .PHONY: test
 test:
@@ -12,4 +13,4 @@ test:
 
 .PHONY: run
 run:
-	@deno run src/main.ts
+	@deno run src/cube.ts

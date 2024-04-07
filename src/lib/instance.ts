@@ -48,11 +48,6 @@ export interface PermutationCount {
     almost: number;
 }
 
-/** Return `true` if `a` is more difficult than `b` */
-export function difficultyRank(a: PermutationCount, b: PermutationCount): boolean {
-    return (a.valid < b.valid) || (a.valid == b.valid && a.almost > b.almost);
-}
-
 export class Puzzle<PieceCount extends number, SlotCount extends number> {
     template: tpl.Puzzle<PieceCount, SlotCount>;
     pieces?: FixedSizeArray<PieceCount, Piece<SlotCount>>;
