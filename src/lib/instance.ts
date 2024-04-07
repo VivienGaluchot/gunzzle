@@ -41,6 +41,18 @@ export class Piece<SlotCount extends number> {
 
 // Puzzles
 
+export interface PermutationCount {
+    // number of permutation where the puzzle can be completed
+    valid: number;
+    // number of permutation where the puzzle can be almost completed, only the last piece does not fit
+    almost: number;
+}
+
+/** Return `true` if `a` is more difficult than `b` */
+export function difficultyRank(a: PermutationCount, b: PermutationCount): boolean {
+    return (a.valid < b.valid) || (a.valid == b.valid && a.almost > b.almost);
+}
+
 export class Puzzle<PieceCount extends number, SlotCount extends number> {
     template: tpl.Puzzle<PieceCount, SlotCount>;
     pieces?: FixedSizeArray<PieceCount, Piece<SlotCount>>;
@@ -58,12 +70,15 @@ export class Puzzle<PieceCount extends number, SlotCount extends number> {
         return this.pieces?.map((piece) => piece.toString()).join(" ") ?? "<no pieces>";
     }
 
-    countPermutations(): number {
+    countPermutations(): PermutationCount {
         return this.recCounter([], assertDefined(this.pieces));
     }
 
-    private recCounter(fixedPieces: Slots<SlotCount>[], freePieces: Piece<SlotCount>[]): number {
-        let acc = 0;
+    private recCounter(
+        fixedPieces: Slots<SlotCount>[],
+        freePieces: Piece<SlotCount>[],
+    ): PermutationCount {
+        const acc: PermutationCount = { almost: 0, valid: 0 };
         for (const [freePieceIndex, freePiece] of freePieces.entries()) {
             for (const piece of freePiece.slotsTransformations) {
                 // check if piece can be placed against already fixed pieces
@@ -82,12 +97,17 @@ export class Puzzle<PieceCount extends number, SlotCount extends number> {
                     if (freePieces.length > 1) {
                         const nextFree = [...freePieces];
                         nextFree.splice(freePieceIndex, 1);
-                        acc += this.recCounter([...fixedPieces, piece], nextFree);
+                        const rec = this.recCounter([...fixedPieces, piece], nextFree);
+                        acc.valid += rec.valid;
+                        acc.almost += rec.almost;
                     } else {
-                        acc += 1;
+                        acc.valid += 1;
                     }
                 }
             }
+        }
+        if ((freePieces.length == 1) && (acc.valid == 0)) {
+            acc.almost += 1;
         }
         return acc;
     }
@@ -158,37 +178,64 @@ Deno.test("Puzzle.countPermutations", () => {
     assertEquals(templatePuzzle.toString(), "[a b] [*b c] [*c d]");
 
     // 2 since puzzle has one symmetry
-    assertEquals(templatePuzzle.getOneSolutionPuzzle().countPermutations(), 2);
+    assertEquals(templatePuzzle.getOneSolutionPuzzle().countPermutations(), {
+        valid: 2,
+        almost: 2,
+    });
 
     {
         const p1 = new Piece([new Slot(-1), new Slot(1)], trs);
         const p2 = new Piece([new Slot(-1), new Slot(1)], trs);
         const p3 = new Piece([new Slot(-1), new Slot(1)], trs);
-        assertEquals(new Puzzle(templatePuzzle).withPieces([p1, p2, p3]).countPermutations(), 12);
-        assertEquals(new Puzzle(templatePuzzle).withPieces([p2, p1, p3]).countPermutations(), 12);
+        assertEquals(new Puzzle(templatePuzzle).withPieces([p1, p2, p3]).countPermutations(), {
+            valid: 12,
+            almost: 0,
+        });
+        assertEquals(new Puzzle(templatePuzzle).withPieces([p2, p1, p3]).countPermutations(), {
+            valid: 12,
+            almost: 0,
+        });
     }
 
     {
         const p1 = new Piece([new Slot(1), new Slot(1)], trs);
         const p2 = new Piece([new Slot(1), new Slot(1)], trs);
         const p3 = new Piece([new Slot(1), new Slot(1)], trs);
-        assertEquals(new Puzzle(templatePuzzle).withPieces([p1, p2, p3]).countPermutations(), 0);
-        assertEquals(new Puzzle(templatePuzzle).withPieces([p2, p1, p3]).countPermutations(), 0);
+        assertEquals(new Puzzle(templatePuzzle).withPieces([p1, p2, p3]).countPermutations(), {
+            valid: 0,
+            almost: 0,
+        });
+        assertEquals(new Puzzle(templatePuzzle).withPieces([p2, p1, p3]).countPermutations(), {
+            valid: 0,
+            almost: 0,
+        });
     }
 
     {
         const p1 = new Piece([new Slot(1), new Slot(2)], trs);
         const p2 = new Piece([new Slot(-2), new Slot(3)], trs);
         const p3 = new Piece([new Slot(-3), new Slot(-1)], trs);
-        assertEquals(new Puzzle(templatePuzzle).withPieces([p1, p2, p3]).countPermutations(), 6);
-        assertEquals(new Puzzle(templatePuzzle).withPieces([p2, p1, p3]).countPermutations(), 6);
+        assertEquals(new Puzzle(templatePuzzle).withPieces([p1, p2, p3]).countPermutations(), {
+            valid: 6,
+            almost: 0,
+        });
+        assertEquals(new Puzzle(templatePuzzle).withPieces([p2, p1, p3]).countPermutations(), {
+            valid: 6,
+            almost: 0,
+        });
     }
 
     {
         const p1 = new Piece([new Slot(1), new Slot(2)], trs);
         const p2 = new Piece([new Slot(-2), new Slot(3)], trs);
         const p3 = new Piece([new Slot(-3), new Slot(4)], trs);
-        assertEquals(new Puzzle(templatePuzzle).withPieces([p1, p2, p3]).countPermutations(), 2);
-        assertEquals(new Puzzle(templatePuzzle).withPieces([p2, p1, p3]).countPermutations(), 2);
+        assertEquals(new Puzzle(templatePuzzle).withPieces([p1, p2, p3]).countPermutations(), {
+            valid: 2,
+            almost: 2,
+        });
+        assertEquals(new Puzzle(templatePuzzle).withPieces([p2, p1, p3]).countPermutations(), {
+            valid: 2,
+            almost: 2,
+        });
     }
 });
