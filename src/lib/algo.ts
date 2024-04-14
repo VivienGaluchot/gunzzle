@@ -16,7 +16,7 @@ export function bruteForceSearch<PieceCount extends number, SlotCount extends nu
     let iterations = 0;
     let lastPrint = Date.now();
     for (const instance of template.all(slotKind)) {
-        const counts = instance.countPermutations();
+        const counts = instance.countPermutations(best?.valid);
         if (best == null || difficultyRank(counts, best)) {
             onNewBest(instance, counts);
             best = counts;

@@ -65,14 +65,16 @@ export class Puzzle<PieceCount extends number, SlotCount extends number> {
         return this.pieces?.map((piece) => piece.toString()).join(" ") ?? "<no pieces>";
     }
 
-    countPermutations(): PermutationCount {
-        return this.recCounter([], assertDefined(this.pieces));
+    countPermutations(maxValid?: number): PermutationCount {
+        const maxValidReached = { almost: 0, valid: Infinity };
+        return this.recCounter([], assertDefined(this.pieces), maxValid) ?? maxValidReached;
     }
 
     private recCounter(
         fixedPieces: Slots<SlotCount>[],
         freePieces: Piece<SlotCount>[],
-    ): PermutationCount {
+        maxValid: number | undefined,
+    ): PermutationCount | null {
         const acc: PermutationCount = { almost: 0, valid: 0 };
         for (const [freePieceIndex, freePiece] of freePieces.entries()) {
             for (const piece of freePiece.slotsTransformations) {
@@ -90,13 +92,20 @@ export class Puzzle<PieceCount extends number, SlotCount extends number> {
                 }
                 if (isOk) {
                     if (freePieces.length > 1) {
+                        // TODO avoid memory allocation
                         const nextFree = [...freePieces];
                         nextFree.splice(freePieceIndex, 1);
-                        const rec = this.recCounter([...fixedPieces, piece], nextFree);
+                        const rec = this.recCounter([...fixedPieces, piece], nextFree, maxValid);
+                        if (rec == null) {
+                            return null;
+                        }
                         acc.valid += rec.valid;
                         acc.almost += rec.almost;
                     } else {
                         acc.valid += 1;
+                        if (maxValid && acc.valid > maxValid) {
+                            return null;
+                        }
                     }
                 }
             }
