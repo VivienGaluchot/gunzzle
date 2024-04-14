@@ -8,14 +8,25 @@ function difficultyRank(a: ins.PermutationCount, b: ins.PermutationCount): boole
 
 export function bruteForceSearch<PieceCount extends number, SlotCount extends number>(
     template: tmp.Puzzle<PieceCount, SlotCount>,
+    slotKind: number,
     onNewBest: (instance: ins.Puzzle<PieceCount, SlotCount>, counts: ins.PermutationCount) => void,
 ) {
     let best: ins.PermutationCount | null = null;
-    for (const instance of template.all(2)) {
+
+    let iterations = 0;
+    let lastPrint = Date.now();
+    for (const instance of template.all(slotKind)) {
         const counts = instance.countPermutations();
         if (best == null || difficultyRank(counts, best)) {
             onNewBest(instance, counts);
             best = counts;
+        }
+        iterations += 1;
+        const now = Date.now();
+        if ((now - lastPrint) > 5000) {
+            console.debug(`${(iterations / 5).toString().padStart(6)} / s`);
+            iterations = 0;
+            lastPrint = now;
         }
     }
 }

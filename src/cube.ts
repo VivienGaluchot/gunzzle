@@ -1,58 +1,104 @@
-import * as tmp from "./lib/template.ts";
-import * as algo from "./lib/algo.ts";
-
 /**
  * Cube puzzle
  *
+ * # Template
+ *
+ * Piece
+ *
  * ```
- *           -- a --
- *          |       |
- *          b       c
- *          |       |
- *   -- x -- -- d -- -- x --
- *  |       |       |       |
- *  x       x       x       x
- *  |       |       |       |
- *   -- x -- -- x -- -- x --
- *          |       |
- *          x       x
- *          |       |
- *           -- x --
- *          |       |
- *          x       x
- *          |       |
- *           -- x --
+ *   -- 0 --
+ *  |       |
+ *  3   x   1
+ *  |       |
+ *   -- 2 --
+ * ```
+ *
+ * Puzzle
+ *
+ * ```
+ *             -- a --
+ *            |       |
+ *            b   1   c
+ *            |       |
+ *             -- d --
+ *   -- b*--   -- d*--   -- c*--
+ *  |       | |       | |       |
+ *  e   2   f f*  3   g g*  4   h
+ *  |       | |       | |       |
+ *   -- i --   -- j --   -- k --
+ *             -- j*--
+ *            |       |
+ *            i*  5   k*
+ *            |       |
+ *             -- l --
+ *             -- l*--
+ *            |       |
+ *            e*  6   h*
+ *            |       |
+ *             -- a* --
  * ```
  */
+
+import * as tmp from "./lib/template.ts";
+import * as algo from "./lib/algo.ts";
 
 console.log("# cube");
 
 console.log("## template");
 console.log("");
 
-const s00 = new tmp.ValSlot("a");
-const s01 = new tmp.ValSlot("b");
-const s10 = new tmp.ValSlot("c");
-const s20 = new tmp.ValSlot("d");
+const sA = new tmp.ValSlot("a");
+const rA = new tmp.RefSlot(sA);
+const sB = new tmp.ValSlot("b");
+const rB = new tmp.RefSlot(sB);
+const sC = new tmp.ValSlot("c");
+const rC = new tmp.RefSlot(sC);
+const sD = new tmp.ValSlot("d");
+const rD = new tmp.RefSlot(sD);
+const sE = new tmp.ValSlot("e");
+const rE = new tmp.RefSlot(sE);
+const sF = new tmp.ValSlot("f");
+const rF = new tmp.RefSlot(sF);
+const sG = new tmp.ValSlot("g");
+const rG = new tmp.RefSlot(sG);
+const sH = new tmp.ValSlot("h");
+const rH = new tmp.RefSlot(sH);
+const sI = new tmp.ValSlot("i");
+const rI = new tmp.RefSlot(sI);
+const sJ = new tmp.ValSlot("j");
+const rJ = new tmp.RefSlot(sJ);
+const sK = new tmp.ValSlot("k");
+const rK = new tmp.RefSlot(sK);
+const sL = new tmp.ValSlot("l");
+const rL = new tmp.RefSlot(sL);
 
-const trs: tmp.Transformations<2> = [[0, 1], [1, 0]];
-const p1 = new tmp.Piece([s00, s01]).withTransformations(trs);
-const p2 = new tmp.Piece([new tmp.RefSlot(s01), s10]).withTransformations(trs);
-const p3 = new tmp.Piece([new tmp.RefSlot(s10), s20]).withTransformations(trs);
+const trs: tmp.Transformations<4> = [
+    [0, 1, 2, 3],
+    [3, 0, 1, 2],
+    [2, 3, 0, 1],
+    [1, 2, 3, 0],
+    [0, 3, 2, 1],
+    [1, 0, 3, 2],
+    [2, 1, 0, 3],
+    [3, 2, 1, 0],
+];
 
-const template = new tmp.Puzzle([p1, p2, p3]);
+const p1 = new tmp.Piece([sA, sC, sD, sB]).withTransformations(trs);
+const p2 = new tmp.Piece([rB, sF, sI, sE]).withTransformations(trs);
+const p3 = new tmp.Piece([rD, sG, sJ, rF]).withTransformations(trs);
+const p4 = new tmp.Piece([rC, sH, sK, rG]).withTransformations(trs);
+const p5 = new tmp.Piece([rJ, rK, sL, rI]).withTransformations(trs);
+const p6 = new tmp.Piece([rL, rH, rA, rE]).withTransformations(trs);
+
+const template = new tmp.Puzzle([p1, p2, p3, p4, p5, p6]);
 console.log(template.toString());
 
 const symmetries = template.getOneSolutionPuzzle().countPermutations().valid;
 console.log(`symmetries`, symmetries);
 
-console.log("");
-
-console.log("## solutions");
-console.log("");
-
-algo.bruteForceSearch(template, (instance, counts) => {
+algo.bruteForceSearch(template, 3, (instance, counts) => {
+    console.log("---");
     console.log(`${counts.almost / symmetries}:${counts.valid / symmetries}`);
     console.log(instance.toString());
-    console.log("");
+    console.log("---");
 });
