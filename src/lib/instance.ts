@@ -67,50 +67,61 @@ export class Puzzle<PieceCount extends number, SlotCount extends number> {
 
     countPermutations(maxValid?: number): PermutationCount {
         const maxValidReached = { almost: 0, valid: Infinity };
-        return this.recCounter([], assertDefined(this.pieces), maxValid) ?? maxValidReached;
+        return this.recCounter(
+            [],
+            fixedMap(assertDefined(this.pieces), () => true),
+            maxValid,
+        ) ?? maxValidReached;
     }
 
     private recCounter(
         fixedPieces: Slots<SlotCount>[],
-        freePieces: Piece<SlotCount>[],
+        isFreePiece: FixedSizeArray<PieceCount, boolean>,
         maxValid: number | undefined,
     ): PermutationCount | null {
         const acc: PermutationCount = { almost: 0, valid: 0 };
-        for (const [freePieceIndex, freePiece] of freePieces.entries()) {
-            for (const piece of freePiece.slotsTransformations) {
-                // check if piece can be placed against already fixed pieces
-                const pieceId = fixedPieces.length;
-                const links = assertDefined(this.template.piecesLinksToPrev[pieceId]);
-                let isOk = true;
-                for (const link of links) {
-                    const freeSlot = assertDefined(piece[link.slotId]);
-                    const fixedSlot = assertDefined(fixedPieces[link.to.pieceId]?.[link.to.slotId]);
-                    if (fixedSlot.value != (-1 * freeSlot.value)) {
-                        isOk = false;
-                        break;
-                    }
-                }
-                if (isOk) {
-                    if (freePieces.length > 1) {
-                        // TODO avoid memory allocation
-                        const nextFree = [...freePieces];
-                        nextFree.splice(freePieceIndex, 1);
-                        const rec = this.recCounter([...fixedPieces, piece], nextFree, maxValid);
-                        if (rec == null) {
-                            return null;
+        const pieces = assertDefined(this.pieces);
+        const freePiecesCount = pieces.length - fixedPieces.length;
+        for (const [selectedPieceIndex, selectedPiece] of pieces.entries()) {
+            if (isFreePiece[selectedPieceIndex] == true) {
+                for (const piece of selectedPiece.slotsTransformations) {
+                    // check if piece can be placed against already fixed pieces
+                    const pieceId = fixedPieces.length;
+                    const links = assertDefined(this.template.piecesLinksToPrev[pieceId]);
+                    let isOk = true;
+                    for (const link of links) {
+                        const freeSlot = assertDefined(piece[link.slotId]);
+                        const fixedSlot = assertDefined(
+                            fixedPieces[link.to.pieceId]?.[link.to.slotId],
+                        );
+                        if (fixedSlot.value + freeSlot.value != 0) {
+                            isOk = false;
+                            break;
                         }
-                        acc.valid += rec.valid;
-                        acc.almost += rec.almost;
-                    } else {
-                        acc.valid += 1;
-                        if (maxValid && acc.valid > maxValid) {
-                            return null;
+                    }
+                    if (isOk) {
+                        if (freePiecesCount > 1) {
+                            fixedPieces.push(piece);
+                            isFreePiece[selectedPieceIndex] = false;
+                            const rec = this.recCounter(fixedPieces, isFreePiece, maxValid);
+                            isFreePiece[selectedPieceIndex] = true;
+                            fixedPieces.pop();
+                            if (rec == null) {
+                                return null;
+                            }
+                            acc.valid += rec.valid;
+                            acc.almost += rec.almost;
+                        } else {
+                            acc.valid += 1;
+                            if (maxValid && acc.valid > maxValid) {
+                                return null;
+                            }
                         }
                     }
                 }
             }
         }
-        if ((freePieces.length == 1) && (acc.valid == 0)) {
+        if ((freePiecesCount == 1) && (acc.valid == 0)) {
             acc.almost += 1;
         }
         return acc;
