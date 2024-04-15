@@ -1,16 +1,18 @@
 export DENO_DIR=/home/dev/.deno
 
+DENO=/home/dev/.deno/bin/deno
+
 all: check test run
 
 .PHONY: check
 check:
-	@deno check src/cube.ts
-	@deno check src/test.ts
+	@${DENO} check src/cube.ts
+	@${DENO} check src/test.ts
 
 .PHONY: test
 test:
-	@deno test src/test.ts
+	@${DENO} test src/test.ts
 
 .PHONY: run
 run:
-	@deno run src/cube.ts
+	@${DENO} run src/cube.ts
