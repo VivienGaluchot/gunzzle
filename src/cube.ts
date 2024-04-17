@@ -97,9 +97,17 @@ console.log(template.toString());
 const symmetries = template.getOneSolutionPuzzle().countPermutations().valid;
 console.log(`symmetries`, symmetries);
 
-algo.bruteForceSearch(template, 3, (instance, counts) => {
+/** Best for now
+ * ---
+ * 21.3:1
+ * [-1 2 -3 1] [-1 -2 -2 2] [3 -2 2 2] [-2 -3 2 2] [-2 -2 -3 2] [3 3 1 -2]
+ * ---
+ */
+algo.randomSearch(template, 3, (instance, counts) => {
+    const valid = counts.valid / symmetries;
+    const almost = Math.round(10 * counts.almost / symmetries) / 10;
     console.log("---");
-    console.log(`${counts.almost / symmetries}:${counts.valid / symmetries}`);
+    console.log(`${almost}:${valid}`);
     console.log(instance.toString());
     console.log("---");
 });

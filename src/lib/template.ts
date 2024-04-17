@@ -24,6 +24,15 @@ export class ValSlot {
         }
     }
 
+    random(slotKind: number): instance.Slot {
+        let i = getRandomInt((-1 * slotKind) + 1, slotKind);
+        if (i <= 0) {
+            i = i - 1;
+        }
+        this.generated = i;
+        return new instance.Slot(i);
+    }
+
     clean() {
         this.generated = undefined;
     }
@@ -42,6 +51,10 @@ export class RefSlot {
 
     *all(): Generator<RefSlot> {
         yield this;
+    }
+
+    random(): RefSlot {
+        return this;
     }
 
     clean() {
@@ -117,6 +130,15 @@ export class Piece<SlotCount extends number> {
                 for (const slotRest of this.recGenerator(slotKind, rest)) yield [slot, ...slotRest];
             }
         }
+    }
+
+    random(slotKind: number): PartialPiece<SlotCount> {
+        return {
+            slots: fixedMap(this.slots, (slot) => {
+                return slot.random(slotKind);
+            }),
+            transformations: this.transformations,
+        };
     }
 
     clean() {
@@ -244,6 +266,18 @@ export class Puzzle<PieceCount extends number, SlotCount extends number> {
             }
         }
     }
+
+    random(slotKind: number): instance.Puzzle<PieceCount, SlotCount> {
+        for (const piece of this.pieces) {
+            piece.clean();
+        }
+        const partialPieces = fixedMap(this.pieces, (piece) => {
+            return piece.random(slotKind);
+        });
+        return new instance.Puzzle(this).withPieces(
+            fixedMap(partialPieces, resolvePartialPiece<SlotCount>),
+        );
+    }
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -251,6 +285,8 @@ export class Puzzle<PieceCount extends number, SlotCount extends number> {
 //-------------------------------------------------------------------------------------------------
 
 import { assertEquals } from "https://deno.land/std@0.217.0/assert/assert_equals.ts";
+import { assert } from "https://deno.land/std@0.217.0/assert/assert.ts";
+import { getRandomInt } from "./math.ts";
 
 Deno.test("Puzzle.toString", () => {
     const s00 = new ValSlot("a");
@@ -357,6 +393,34 @@ Deno.test("Puzzle.all", () => {
             [[2, -2], [-2, 2]],
         ],
     );
+});
+
+Deno.test("Puzzle.random", () => {
+    const s00 = new ValSlot("a");
+    const s01 = new ValSlot("b");
+    const s10 = new ValSlot("c");
+    const s20 = new ValSlot("d");
+
+    const transformations: Transformations<2> = [[0, 1], [1, 0]];
+    const p1 = new Piece([s00, s01]).withTransformations(transformations);
+    const p2 = new Piece([new RefSlot(s01), s10]).withTransformations(transformations);
+    const p3 = new Piece([new RefSlot(s10), s20]).withTransformations(transformations);
+
+    const puzzleTemplate = new Puzzle([p1, p2, p3]);
+    assertEquals(puzzleTemplate.toString(), "[a b] [*b c] [*c d]");
+
+    for (let i = 0; i < 100; i++) {
+        const instance = puzzleTemplate.random(10);
+        assertEquals(instance.pieces?.length, 3);
+        for (const piece of instance.pieces || []) {
+            assertEquals(piece.slots.length, 2);
+            for (const slot of piece.slots) {
+                assert(slot.value <= 10);
+                assert(slot.value >= -10);
+                assert(slot.value != 0);
+            }
+        }
+    }
 });
 
 Deno.test("Puzzle.piecesLinks", () => {
