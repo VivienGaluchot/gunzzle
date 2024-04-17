@@ -97,11 +97,10 @@ console.log(template.toString());
 const symmetries = template.getOneSolutionPuzzle().countPermutations().valid;
 console.log(`symmetries`, symmetries);
 
-/** Best for now
- * ---
- * 21.3:1
- * [-1 2 -3 1] [-1 -2 -2 2] [3 -2 2 2] [-2 -3 2 2] [-2 -2 -3 2] [3 3 1 -2]
- * ---
+/**
+ * Best for now
+ * 29.2:1
+ * [-1 -2 2 1] [-1 2 1 1] [-2 -1 1 -2] [2 -1 -1 1] [-1 1 -3 -1] [3 1 1 -1]
  */
 algo.randomSearch(template, 3, (instance, counts) => {
     const valid = counts.valid / symmetries;
