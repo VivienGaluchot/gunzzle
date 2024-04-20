@@ -123,6 +123,9 @@ console.log(`symmetries`, symmetries);
  *
  * 1 x 38.2
  * [-1 1 -2 2] [-2 -1 -1 1] [2 -3 1 1] [-1 -1 1 3] [-1 -1 -3 1] [3 1 1 -1]
+ *
+ * 1 x 38.2
+ * [1 -1 2 -2] [2 2 -3 -2] [-2 -3 2 -2] [1 2 2 3] [-2 -2 2 3] [-2 -2 -1 2]
  */
 algo.darwinSearch(template, 3, (instance, counts) => {
     const valid = counts.valid / symmetries;
