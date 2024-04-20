@@ -99,16 +99,33 @@ console.log(`symmetries`, symmetries);
 
 /**
  * Best for now
- * 29.2:1
+ *
+ * 1 x 29.2:1
  * [-1 -2 2 1] [-1 2 1 1] [-2 -1 1 -2] [2 -1 -1 1] [-1 1 -3 -1] [3 1 1 -1]
- * 34.5:1
+ *
+ * 1 x 34.5
  * [-2 1 -1 2] [-2 -3 2 2] [1 -2 2 3] [-1 -2 -2 2] [-2 2 -3 -2] [3 2 2 -2]
  */
-algo.randomSearch(template, 3, (instance, counts) => {
+// algo.randomSearch(template, 3, (instance, counts) => {
+//     const valid = counts.valid / symmetries;
+//     const almost = Math.round(10 * counts.almost / symmetries) / 10;
+//     console.log("---");
+//     console.log(`${almost}:${valid}`);
+//     console.log(instance.toString());
+//     console.log("---");
+// });
+
+/**
+ * Best for now
+ *
+ * 1 x 18.7
+ * [2 -1 1 -2] [2 -3 1 1] [-1 2 1 3] [1 -1 -1 -2] [-1 1 -3 -1] [3 1 -2 -1]
+ */
+algo.darwinSearch(template, 3, (instance, counts) => {
     const valid = counts.valid / symmetries;
     const almost = Math.round(10 * counts.almost / symmetries) / 10;
     console.log("---");
-    console.log(`${almost}:${valid}`);
+    console.log(`${valid} x ${almost}`);
     console.log(instance.toString());
     console.log("---");
 });

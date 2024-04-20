@@ -1,4 +1,4 @@
-import * as instance from "./instance.ts";
+import * as ins from "./instance.ts";
 import { assertDefined, fixedMap, FixedSizeArray } from "./type.ts";
 
 // Slots
@@ -15,22 +15,32 @@ export class ValSlot {
         return `${this.id}`;
     }
 
-    *all(slotKind: number): Generator<instance.Slot> {
+    *all(slotKind: number): Generator<ins.Slot> {
         for (let i = -slotKind; i <= slotKind; i++) {
             if (i != 0) {
                 this.generated = i;
-                yield new instance.Slot(i);
+                yield new ins.Slot(i);
             }
         }
     }
 
-    random(slotKind: number): instance.Slot {
+    random(slotKind: number): ins.Slot {
         let i = getRandomInt((-1 * slotKind) + 1, slotKind);
         if (i <= 0) {
             i = i - 1;
         }
         this.generated = i;
-        return new instance.Slot(i);
+        return new ins.Slot(i);
+    }
+
+    randomChildren(slotKind: number, mutationRate: number, instance: ins.Slot): ins.Slot {
+        const mutate = Math.random() < mutationRate;
+        if (mutate) {
+            return this.random(slotKind);
+        } else {
+            this.generated = instance.value;
+            return new ins.Slot(instance.value);
+        }
     }
 
     clean() {
@@ -57,20 +67,24 @@ export class RefSlot {
         return this;
     }
 
+    randomChildren(): RefSlot {
+        return this;
+    }
+
     clean() {
     }
 }
 
 type Slot = RefSlot | ValSlot;
 
-type PartialSlot = instance.Slot | RefSlot;
+type PartialSlot = ins.Slot | RefSlot;
 
-function resolvePartialSlot(partial: PartialSlot): instance.Slot {
-    if (partial instanceof instance.Slot) {
+function resolvePartialSlot(partial: PartialSlot): ins.Slot {
+    if (partial instanceof ins.Slot) {
         return partial;
     } else if (partial instanceof RefSlot) {
         if (partial.ref.generated != undefined) {
-            return new instance.Slot(partial.ref.generated * -1);
+            return new ins.Slot(partial.ref.generated * -1);
         } else {
             throw new Error("internal error");
         }
@@ -127,7 +141,9 @@ export class Piece<SlotCount extends number> {
             yield [];
         } else {
             for (const slot of first.all(slotKind)) {
-                for (const slotRest of this.recGenerator(slotKind, rest)) yield [slot, ...slotRest];
+                for (const slotRest of this.recGenerator(slotKind, rest)) {
+                    yield [slot, ...slotRest];
+                }
             }
         }
     }
@@ -136,6 +152,23 @@ export class Piece<SlotCount extends number> {
         return {
             slots: fixedMap(this.slots, (slot) => {
                 return slot.random(slotKind);
+            }),
+            transformations: this.transformations,
+        };
+    }
+
+    randomChildren(
+        slotKind: number,
+        mutationRate: number,
+        instance: ins.Piece<SlotCount>,
+    ): PartialPiece<SlotCount> {
+        return {
+            slots: fixedMap(this.slots, (slot, index) => {
+                return slot.randomChildren(
+                    slotKind,
+                    mutationRate,
+                    assertDefined(instance.slots[index]),
+                );
             }),
             transformations: this.transformations,
         };
@@ -155,9 +188,9 @@ type PartialPiece<SlotCount extends number> = {
 
 function resolvePartialPiece<SlotCount extends number>(
     partial: PartialPiece<SlotCount>,
-): instance.Piece<SlotCount> {
-    return new instance.Piece(
-        partial.slots.map(resolvePartialSlot) as instance.Slots<SlotCount>,
+): ins.Piece<SlotCount> {
+    return new ins.Piece(
+        partial.slots.map(resolvePartialSlot) as ins.Slots<SlotCount>,
         partial.transformations,
     );
 }
@@ -214,7 +247,7 @@ export class Puzzle<PieceCount extends number, SlotCount extends number> {
         return this.pieces.map((piece) => piece.toString()).join(" ");
     }
 
-    getOneSolutionPuzzle(): instance.Puzzle<PieceCount, SlotCount> {
+    getOneSolutionPuzzle(): ins.Puzzle<PieceCount, SlotCount> {
         let value = 0;
         const slotMap = new Map<ValSlot, number>();
         for (const piece of this.pieces) {
@@ -225,24 +258,24 @@ export class Puzzle<PieceCount extends number, SlotCount extends number> {
                 }
             }
         }
-        return new instance.Puzzle(this).withPieces(fixedMap(this.pieces, (piece) => {
+        return new ins.Puzzle(this).withPieces(fixedMap(this.pieces, (piece) => {
             const slots = fixedMap(piece.slots, (slot) => {
                 if (slot instanceof ValSlot) {
-                    return new instance.Slot(assertDefined(slotMap.get(slot)));
+                    return new ins.Slot(assertDefined(slotMap.get(slot)));
                 } else {
-                    return new instance.Slot(-1 * assertDefined(slotMap.get(slot.ref)));
+                    return new ins.Slot(-1 * assertDefined(slotMap.get(slot.ref)));
                 }
             });
-            return new instance.Piece(slots, piece.transformations);
+            return new ins.Piece(slots, piece.transformations);
         }));
     }
 
-    *all(slotKind: number): Generator<instance.Puzzle<PieceCount, SlotCount>> {
+    *all(slotKind: number): Generator<ins.Puzzle<PieceCount, SlotCount>> {
         for (const piece of this.pieces) {
             piece.clean();
         }
         for (const partialPieces of this.recGenerator(slotKind, this.pieces)) {
-            yield new instance.Puzzle(this).withPieces(
+            yield new ins.Puzzle(this).withPieces(
                 fixedMap(
                     partialPieces as FixedSizeArray<PieceCount, PartialPiece<SlotCount>>,
                     resolvePartialPiece<SlotCount>,
@@ -267,14 +300,34 @@ export class Puzzle<PieceCount extends number, SlotCount extends number> {
         }
     }
 
-    random(slotKind: number): instance.Puzzle<PieceCount, SlotCount> {
+    random(slotKind: number): ins.Puzzle<PieceCount, SlotCount> {
         for (const piece of this.pieces) {
             piece.clean();
         }
         const partialPieces = fixedMap(this.pieces, (piece) => {
             return piece.random(slotKind);
         });
-        return new instance.Puzzle(this).withPieces(
+        return new ins.Puzzle(this).withPieces(
+            fixedMap(partialPieces, resolvePartialPiece<SlotCount>),
+        );
+    }
+
+    randomChildren(
+        slotKind: number,
+        mutationRate: number,
+        instance: ins.Puzzle<PieceCount, SlotCount>,
+    ): ins.Puzzle<PieceCount, SlotCount> {
+        for (const piece of this.pieces) {
+            piece.clean();
+        }
+        const partialPieces = fixedMap(this.pieces, (piece, index) => {
+            return piece.randomChildren(
+                slotKind,
+                mutationRate,
+                assertDefined(instance.pieces?.[index]),
+            );
+        });
+        return new ins.Puzzle(this).withPieces(
             fixedMap(partialPieces, resolvePartialPiece<SlotCount>),
         );
     }
