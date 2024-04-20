@@ -118,8 +118,11 @@ console.log(`symmetries`, symmetries);
 /**
  * Best for now
  *
- * 1 x 18.7
- * [2 -1 1 -2] [2 -3 1 1] [-1 2 1 3] [1 -1 -1 -2] [-1 1 -3 -1] [3 1 -2 -1]
+ * 1 x 19.7
+ * [-1 1 2 -2] [2 -3 -1 1] [-2 -1 -1 3] [-1 -1 -2 1] [1 2 -2 1] [2 1 1 -1]
+ *
+ * 1 x 38.2
+ * [-1 1 -2 2] [-2 -1 -1 1] [2 -3 1 1] [-1 -1 1 3] [-1 -1 -3 1] [3 1 1 -1]
  */
 algo.darwinSearch(template, 3, (instance, counts) => {
     const valid = counts.valid / symmetries;

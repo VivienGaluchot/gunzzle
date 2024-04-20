@@ -91,9 +91,9 @@ export function darwinSearch<PieceCount extends number, SlotCount extends number
     let bestCount: ins.PermutationCount | null = null;
 
     // settings
-    const populationCount = 50;
+    const populationCount = 25;
     const childCount = 5;
-    const mutationRate = .2;
+    const mutationRate = .3;
 
     // initialize population
     const population: {
