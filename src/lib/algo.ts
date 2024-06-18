@@ -40,10 +40,15 @@ function perfIteration(ctx: PerfContext): boolean {
     return false;
 }
 
-export function bruteForceSearch<PieceCount extends number, SlotCount extends number>(
+type onNewBestCb<PieceCount extends number, SlotCount extends number> = (
+    instance: ins.Puzzle<PieceCount, SlotCount>,
+    count: ins.PermutationCount,
+) => Promise<void>;
+
+export async function bruteForceSearch<PieceCount extends number, SlotCount extends number>(
     template: tmp.Puzzle<PieceCount, SlotCount>,
     slotKind: number,
-    onNewBest: (instance: ins.Puzzle<PieceCount, SlotCount>, count: ins.PermutationCount) => void,
+    onNewBest: onNewBestCb<PieceCount, SlotCount>,
 ) {
     const ctx = { iterations: 0, lastPrintInMs: Date.now() };
 
@@ -52,17 +57,17 @@ export function bruteForceSearch<PieceCount extends number, SlotCount extends nu
     for (const instance of template.all(slotKind)) {
         const count = instance.countPermutations(bestCount?.valid);
         if (bestCount == null || compareDifficulty(count, bestCount) > 0) {
-            onNewBest(instance, count);
+            await onNewBest(instance, count);
             bestCount = count;
         }
         perfIteration(ctx);
     }
 }
 
-export function randomSearch<PieceCount extends number, SlotCount extends number>(
+export async function randomSearch<PieceCount extends number, SlotCount extends number>(
     template: tmp.Puzzle<PieceCount, SlotCount>,
     slotKind: number,
-    onNewBest: (instance: ins.Puzzle<PieceCount, SlotCount>, count: ins.PermutationCount) => void,
+    onNewBest: onNewBestCb<PieceCount, SlotCount>,
 ) {
     const ctx = { iterations: 0, lastPrintInMs: Date.now() };
 
@@ -73,7 +78,7 @@ export function randomSearch<PieceCount extends number, SlotCount extends number
         const instance = template.random(slotKind);
         const count = instance.countPermutations(bestCount?.valid);
         if (compareDifficulty(count, bestCount) > 0) {
-            onNewBest(instance, count);
+            await onNewBest(instance, count);
             bestPuzzle = instance;
             bestCount = count;
         }
@@ -81,10 +86,10 @@ export function randomSearch<PieceCount extends number, SlotCount extends number
     }
 }
 
-export function darwinSearch<PieceCount extends number, SlotCount extends number>(
+export async function darwinSearch<PieceCount extends number, SlotCount extends number>(
     template: tmp.Puzzle<PieceCount, SlotCount>,
     slotKind: number,
-    onNewBest: (instance: ins.Puzzle<PieceCount, SlotCount>, count: ins.PermutationCount) => void,
+    onNewBest: onNewBestCb<PieceCount, SlotCount>,
 ) {
     const ctx = { iterations: 0, lastPrintInMs: Date.now() };
 
@@ -120,7 +125,7 @@ export function darwinSearch<PieceCount extends number, SlotCount extends number
                 const count = instance.countPermutations(bestCount?.valid);
                 population.push({ instance, count });
                 if (bestCount == null || compareDifficulty(count, bestCount) > 0) {
-                    onNewBest(instance, count);
+                    await onNewBest(instance, count);
                     bestCount = count;
                 }
                 hasLogged = hasLogged || perfIteration(ctx);
