@@ -11,5 +11,5 @@ test:
 
 .PHONY: run
 run:
-	@mkdir -p result/cube
-	@deno run --allow-write src/gunzzle.ts -s darwin -d result/cube
+	@mkdir -p result
+	@deno run --allow-write src/gunzzle.ts -s darwin -d result

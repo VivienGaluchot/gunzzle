@@ -83,6 +83,7 @@ async function main(): Promise<number> {
     const template = cube.getTemplate();
     const symmetries = template.getOneSolutionPuzzle().countPermutations().valid;
 
+    let prevFilePath: string | undefined = undefined;
     await userAlgo(template, 3, async (instance, counts) => {
         const valid = counts.valid / symmetries;
         const almost = Math.round(10 * counts.almost / symmetries) / 10;
@@ -91,10 +92,14 @@ async function main(): Promise<number> {
         console.log(instance.toString());
         console.log("---");
         if (dir) {
-            await Deno.writeFile(
-                `${dir}/${valid}x${almost}.txt`,
-                new TextEncoder().encode(instance.toString()),
-            );
+            const filePath = `${dir}/cube-${valid}x${almost}.txt`;
+            await Deno.writeFile(filePath, new TextEncoder().encode(instance.toString()), {
+                createNew: true,
+            });
+            if (prevFilePath != undefined) {
+                await Deno.remove(prevFilePath);
+            }
+            prevFilePath = filePath;
         }
     });
 
