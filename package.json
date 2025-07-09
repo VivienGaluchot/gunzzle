@@ -2,7 +2,7 @@
     "name": "gunzzle",
     "scripts": {
         "build": "./node_modules/typescript/bin/tsc",
-        "dev_server": "http-server -p 8000"
+        "dev_server": "http-server -p 3000"
     },
     "engines": {
         "npm": ">=9.0.0 <10.0.0",
