@@ -37,6 +37,10 @@ function mapValueRequired<T>(
 // CLI args
 
 function getArgs() {
+    const ARG_TEMPLATE = {
+        "cube": cube.getTemplate,
+    };
+
     const ARG_MAP_SEARCH = {
         "bruteforce": algo.bruteForceSearch,
         "random": algo.randomSearch,
@@ -47,6 +51,8 @@ function getArgs() {
         console.log(`gunzzle.ts -s ${mapKeys(ARG_MAP_SEARCH)}`);
         console.log(``);
         console.log(`   required:`);
+        console.log(`      -t/--template ${mapKeys(ARG_TEMPLATE)}`);
+        console.log(`         template`);
         console.log(`      -s/--search ${mapKeys(ARG_MAP_SEARCH)}`);
         console.log(`         search algo`);
         console.log(``);
@@ -60,8 +66,8 @@ function getArgs() {
 
     const flags = parseArgs(Deno.args, {
         boolean: ["help"],
-        string: ["search", "dir"],
-        alias: { "s": "search", "d": "dir", "h": "help" },
+        string: ["search", "dir", "template"],
+        alias: { "s": "search", "t": "template", "d": "dir", "h": "help" },
     });
 
     if (flags.help) {
@@ -71,6 +77,11 @@ function getArgs() {
 
     return {
         dir: flags.dir,
+        getTemplate: mapValueRequired(
+            ARG_TEMPLATE,
+            requiredArg(flags.template, showUsage),
+            showUsage,
+        ),
         userAlgo: mapValueRequired(ARG_MAP_SEARCH, requiredArg(flags.search, showUsage), showUsage),
     };
 }
@@ -78,9 +89,9 @@ function getArgs() {
 // Main
 
 async function main(): Promise<number> {
-    const { dir, userAlgo } = getArgs();
+    const { dir, getTemplate, userAlgo } = getArgs();
 
-    const template = cube.getTemplate();
+    const template = getTemplate();
     const symmetries = template.getOneSolutionPuzzle().countPermutations().valid;
 
     let prevFilePath: string | undefined = undefined;

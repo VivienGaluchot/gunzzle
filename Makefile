@@ -1,4 +1,4 @@
-all: check test run
+all: check test
 
 .PHONY: check
 check:
@@ -9,7 +9,7 @@ check:
 test:
 	@deno test src/test.ts
 
-.PHONY: run
-run:
+.PHONY: run_cube
+run_cube:
 	@mkdir -p result
-	@deno run --allow-write src/gunzzle.ts -s darwin -d result
+	@deno run --allow-write src/gunzzle.ts -s darwin -d result -t cube
