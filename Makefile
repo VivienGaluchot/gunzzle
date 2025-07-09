@@ -2,7 +2,7 @@ all: check test run
 
 .PHONY: check
 check:
-	@deno check src/cube.ts
+	@deno check src/gunzzle.ts
 	@deno check src/test.ts
 
 .PHONY: test

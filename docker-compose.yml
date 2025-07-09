@@ -1,5 +1,3 @@
-version: '3'
-
 services:
   dev_container:
     stdin_open: true
