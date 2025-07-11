@@ -4,6 +4,7 @@
 
 import * as algo from "./lib/algo.ts";
 import * as cube from "./puzzle/cube.ts";
+import * as triangle4 from "./puzzle/triangle4.ts";
 import { parseArgs } from "jsr:@std/cli/parse-args";
 
 // CLI helpers
@@ -18,6 +19,16 @@ function requiredArg<T>(value: T | undefined, showUsage: () => void): T {
         Deno.exit(1);
     }
     return value;
+}
+
+function intArg(value: string, showUsage: () => void): number {
+    const x = Number(value);
+    if (Number.isFinite(x)) {
+        return x;
+    } else {
+        showUsage();
+        Deno.exit(1);
+    }
 }
 
 function mapValueRequired<T>(
@@ -39,6 +50,7 @@ function mapValueRequired<T>(
 function getArgs() {
     const ARG_TEMPLATE = {
         "cube": cube.getTemplate,
+        "triangle4": triangle4.getTemplate,
     };
 
     const ARG_MAP_SEARCH = {
@@ -55,6 +67,9 @@ function getArgs() {
         console.log(`         template`);
         console.log(`      -s/--search ${mapKeys(ARG_MAP_SEARCH)}`);
         console.log(`         search algo`);
+        console.log(`      -n/--slot_number X`);
+        console.log(`         number of slot to use for search`);
+
         console.log(``);
         console.log(`   optional:`);
         console.log(`      -d/--dir <dir>`);
@@ -66,8 +81,8 @@ function getArgs() {
 
     const flags = parseArgs(Deno.args, {
         boolean: ["help"],
-        string: ["search", "dir", "template"],
-        alias: { "s": "search", "t": "template", "d": "dir", "h": "help" },
+        string: ["search", "dir", "template", "slot_number"],
+        alias: { "s": "search", "t": "template", "n": "slot_number", "d": "dir", "h": "help" },
     });
 
     if (flags.help) {
@@ -77,25 +92,27 @@ function getArgs() {
 
     return {
         dir: flags.dir,
+        templateName: requiredArg(flags.template, showUsage),
         getTemplate: mapValueRequired(
             ARG_TEMPLATE,
             requiredArg(flags.template, showUsage),
             showUsage,
         ),
         userAlgo: mapValueRequired(ARG_MAP_SEARCH, requiredArg(flags.search, showUsage), showUsage),
+        slotNumber: intArg(requiredArg(flags.slot_number, showUsage), showUsage),
     };
 }
 
 // Main
 
 async function main(): Promise<number> {
-    const { dir, getTemplate, userAlgo } = getArgs();
+    const { dir, templateName, getTemplate, userAlgo, slotNumber } = getArgs();
 
     const template = getTemplate();
     const symmetries = template.getOneSolutionPuzzle().countPermutations().valid;
 
     let prevFilePath: string | undefined = undefined;
-    await userAlgo(template, 3, async (instance, counts) => {
+    await userAlgo(template, slotNumber, async (instance, counts) => {
         const valid = counts.valid / symmetries;
         const almost = Math.round(10 * counts.almost / symmetries) / 10;
         console.log("---");
@@ -103,10 +120,14 @@ async function main(): Promise<number> {
         console.log(instance.toString());
         console.log("---");
         if (dir) {
-            const filePath = `${dir}/cube-${valid}x${almost}.txt`;
-            await Deno.writeFile(filePath, new TextEncoder().encode(instance.toString()), {
-                createNew: true,
-            });
+            const filePath = `${dir}/${templateName}-${valid}x${almost}.txt`;
+            try {
+                await Deno.writeFile(filePath, new TextEncoder().encode(instance.toString()), {
+                    createNew: true,
+                });
+            } catch (err) {
+                console.error("failed to write", err);
+            }
             if (prevFilePath != undefined) {
                 await Deno.remove(prevFilePath);
             }
