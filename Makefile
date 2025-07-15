@@ -18,4 +18,10 @@ run_cube:
 .PHONY: run_triangle4
 run_triangle4:
 	@mkdir -p result
-	@deno run --allow-write src/gunzzle.ts -s darwin -d result -t triangle4 -n 2
+	@deno run --allow-write src/gunzzle.ts -s darwin -d result -t triangle4 -n 3
+
+
+.PHONY: run_tetraedre
+run_tetraedre:
+	@mkdir -p result
+	@deno run --allow-write src/gunzzle.ts -s bruteforce -d result -t tetraedre -n 3

@@ -5,6 +5,7 @@
 import * as algo from "./lib/algo.ts";
 import * as cube from "./puzzle/cube.ts";
 import * as triangle4 from "./puzzle/triangle4.ts";
+import * as tetraedre from "./puzzle/tetraedre.ts";
 import { parseArgs } from "jsr:@std/cli/parse-args";
 
 // CLI helpers
@@ -51,6 +52,7 @@ function getArgs() {
     const ARG_TEMPLATE = {
         "cube": cube.getTemplate,
         "triangle4": triangle4.getTemplate,
+        "tetraedre": tetraedre.getTemplate,
     };
 
     const ARG_MAP_SEARCH = {
