@@ -122,6 +122,9 @@ async function main(): Promise<number> {
         if (dir) {
             const filePath = `${dir}/${templateName}-${valid}x${almost}.txt`;
             try {
+                // TODO
+                // normalize the instance (swap ids for reproducibility)
+                // print in nice output
                 await Deno.writeFile(filePath, new TextEncoder().encode(instance.toString()), {
                     createNew: true,
                 });
