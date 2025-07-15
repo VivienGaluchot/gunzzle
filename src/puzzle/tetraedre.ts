@@ -1,5 +1,5 @@
 /**
- * Cube puzzle
+ * Tetraedre puzzle
  *
  * # Template
  *

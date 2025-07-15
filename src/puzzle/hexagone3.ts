@@ -1,33 +1,41 @@
 /**
- * Triangle puzzle
+ * Hexagone puzzle
  *
  * # Template
  *
  * Piece
  *
  * ```
- *      -
- *    /   \
- *   1  x  2
- *  /       \
- *  --- 0 ---
+ *      --- 0 ---
+ *    /           \
+ *   5             1
+ *  /               \
+ *  \       x       /
+ *   4             2
+ *    \           /
+ *      --- 3 ---
  * ```
  *
  * Puzzle
  *
  * ```
- *                -
- *              /   \
- *             a  1  b
- *            /       \
- *            --- c ---
- *
- *            --- c*---
- *     -      \       /      -
- *   /   \     f* 3  g     /   \
- *  d  2  f     \   /     g* 4  h
- * /       \      -      /       \
- * --- e ---             --- i ---
+ *      --- a ---
+ *    /           \
+ *   f             b
+ *  /               \
+ *  \       0       /     --- d ---
+ *   e             c    /           \
+ *    \           /    c*            e
+ *      --- d ---     /               \
+ *                    \       1       /
+ *      --- i ---      h             f
+ *    /           \     \           /
+ *   m             h*     --- g ---
+ *  /               \
+ *  \       2       /
+ *   l             j
+ *    \           /
+ *      --- k ---
  * ```
  */
 
@@ -52,6 +60,14 @@ export function getTemplate(): tmp.Puzzle<4, 3> {
     const _rH = new tmp.RefSlot(sH);
     const sI = new tmp.ValSlot("i");
     const _rI = new tmp.RefSlot(sI);
+    const sJ = new tmp.ValSlot("j");
+    const _rJ = new tmp.RefSlot(sJ);
+    const sK = new tmp.ValSlot("k");
+    const _rK = new tmp.RefSlot(sK);
+    const sL = new tmp.ValSlot("l");
+    const _rL = new tmp.RefSlot(sL);
+    const sM = new tmp.ValSlot("m");
+    const _rM = new tmp.RefSlot(sM);
 
     const trs: tmp.Transformations<3> = [
         [0, 1, 2],
