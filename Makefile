@@ -25,3 +25,8 @@ run_triangle4:
 run_tetraedre:
 	@mkdir -p result
 	@deno run --allow-write src/gunzzle.ts -s bruteforce -d result -t tetraedre -n 3
+
+.PHONY: run_hexagone3
+run_hexagone3:
+	@mkdir -p result
+	@deno run --allow-write src/gunzzle.ts -s darwin -d result -t hexagone3 -n 2
