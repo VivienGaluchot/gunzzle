@@ -30,3 +30,8 @@ run_tetraedre:
 run_hexagone3:
 	@mkdir -p result
 	@deno run --allow-write src/gunzzle.ts -s darwin -d result -t hexagone3 -n 2
+
+.PHONY: run_hexagone4
+run_hexagone4:
+	@mkdir -p result
+	@deno run --allow-write src/gunzzle.ts -s darwin -d result -t hexagone4 -n 3

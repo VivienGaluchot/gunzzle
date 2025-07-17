@@ -7,6 +7,7 @@ import * as cube from "./puzzle/cube.ts";
 import * as triangle4 from "./puzzle/triangle4.ts";
 import * as tetraedre from "./puzzle/tetraedre.ts";
 import * as hexagone3 from "./puzzle/hexagone3.ts";
+import * as hexagone4 from "./puzzle/hexagone4.ts";
 import { parseArgs } from "jsr:@std/cli/parse-args";
 
 // CLI helpers
@@ -55,6 +56,7 @@ function getArgs() {
         "triangle4": triangle4.getTemplate,
         "tetraedre": tetraedre.getTemplate,
         "hexagone3": hexagone3.getTemplate,
+        "hexagone4": hexagone4.getTemplate,
     };
 
     const ARG_MAP_SEARCH = {
@@ -120,20 +122,20 @@ async function main(): Promise<number> {
         const valid = counts.valid / symmetries;
         const almost = Math.round(10 * counts.almost / symmetries) / 10;
         console.log("---");
-        console.log(`${valid} x ${almost}`);
+        console.log(`${valid} x ${almost} (${symmetries})`);
         console.log(instance.toString());
         console.log("---");
         if (dir) {
             const filePath = `${dir}/${templateName}-${valid}x${almost}.txt`;
             try {
                 // TODO
-                // normalize the instance (swap ids for reproducibility)
+                // normalize the instance (swap ids for reproducibility ?)
                 // print in nice output
-                await Deno.writeFile(filePath, new TextEncoder().encode(instance.toString()), {
-                    createNew: true,
+                await Deno.writeFile(filePath, new TextEncoder().encode(`${instance.toString()}\n`), {
+                    append: true,
                 });
             } catch (err) {
-                console.error("failed to write", err);
+                console.error(`failed to write: ${err}`);
             }
             if (prevFilePath != undefined) {
                 await Deno.remove(prevFilePath);

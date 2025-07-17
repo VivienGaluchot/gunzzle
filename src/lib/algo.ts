@@ -4,17 +4,17 @@ import { assertDefined } from "./type.ts";
 
 /**
  * Return
- * * `1` if `a` is more difficult than `b`,
+ * * `>0` if `a` is more difficult than `b`,
  * * `0` if `a` difficulty is the same as `b`,
- * * `-1` if `b` is more difficult than `a`.
+ * * `<0` if `b` is more difficult than `a`.
  */
 function compareDifficulty(a: ins.PermutationCount, b: ins.PermutationCount): number {
-    if ((a.valid == b.valid) && (a.almost == b.almost)) {
-        return 0;
-    } else if ((a.valid < b.valid) || (a.valid == b.valid && a.almost > b.almost)) {
-        return 1;
+    if (a.valid != b.valid) {
+        return b.valid - a.valid;
+    } else if (a.almost != b.almost) {
+        return a.almost - b.almost;
     } else {
-        return -1;
+        return 0;
     }
 }
 

@@ -3,6 +3,11 @@ import { assertDefined, fixedMap, FixedSizeArray } from "./type.ts";
 
 // Slots
 
+export function slotPair(id: string): { s: ValSlot; r: RefSlot } {
+    const s = new ValSlot(id);
+    return { s, r: new RefSlot(s) };
+}
+
 export class ValSlot {
     id: string;
     generated?: number;
@@ -245,6 +250,17 @@ export class Puzzle<PieceCount extends number, SlotCount extends number> {
 
     toString(): string {
         return this.pieces.map((piece) => piece.toString()).join(" ");
+    }
+
+    getInstance(
+        values: FixedSizeArray<PieceCount, FixedSizeArray<SlotCount, number>>,
+    ): ins.Puzzle<PieceCount, SlotCount> {
+        return new ins.Puzzle(this).withPieces(fixedMap(this.pieces, (piece, pIndex) => {
+            const slots = fixedMap(piece.slots, (_slot, sIndex) => {
+                return new ins.Slot(assertDefined(values[pIndex]?.[sIndex]));
+            });
+            return new ins.Piece(slots, piece.transformations);
+        }));
     }
 
     getOneSolutionPuzzle(): ins.Puzzle<PieceCount, SlotCount> {

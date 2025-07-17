@@ -64,3 +64,18 @@ export function getTemplate(): tmp.Puzzle<4, 3> {
 
     return new tmp.Puzzle([p1, p2, p3, p4]);
 }
+
+//-------------------------------------------------------------------------------------------------
+// Tests
+//-------------------------------------------------------------------------------------------------
+
+import { assertEquals } from "https://deno.land/std@0.217.0/assert/assert_equals.ts";
+
+Deno.test("Puzzle.countPermutations", () => {
+    const template = getTemplate();
+    // best value without first piece transform omptimization
+    const a = template.getInstance([[-3, -2, -1], [-3, 2, 3], [3, 1, -3], [3, -1, 1]]);
+    // best value with first piece transform omptimization
+    const b = template.getInstance([[-3, -2, 2], [-3, 2, 3], [3, -1, -3], [3, 1, -2]]);
+    assertEquals(a.countPermutations(), b.countPermutations());
+});

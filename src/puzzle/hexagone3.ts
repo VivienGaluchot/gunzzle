@@ -82,7 +82,6 @@ export function getTemplate(): tmp.Puzzle<3, 6> {
         [4, 3, 2, 1, 1, 5],
     ];
 
-    // no transform on first piece to reduce the number of symetries found
     const p1 = new tmp.Piece([sA, sB, sC, sD, sE, sF]).withTransformations([[0, 1, 2, 3, 4, 5]]);
     const p2 = new tmp.Piece([sD, sE, sF, sG, sH, rC]).withTransformations(trs);
     const p3 = new tmp.Piece([rD, rH, sI, sJ, sK, sL]).withTransformations(trs);
