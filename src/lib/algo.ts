@@ -8,13 +8,13 @@ import { assertDefined } from "./type.ts";
  * * `0` if `a` difficulty is the same as `b`,
  * * `<0` if `b` is more difficult than `a`.
  */
-function compareDifficulty(a: ins.PermutationCount, b: ins.PermutationCount): number {
+function compareDifficulty(a: ins.DifficultyIndice, b: ins.DifficultyIndice): number {
     if (a.valid != b.valid) {
         return b.valid - a.valid;
-    } else if (a.almost != b.almost) {
-        return a.almost - b.almost;
     } else {
-        return 0;
+        const scoreA = a.almost * a.entropy * a.entropy;
+        const scoreB = b.almost * b.entropy * b.entropy;
+        return scoreA - scoreB;
     }
 }
 
@@ -42,23 +42,23 @@ function perfIteration(ctx: PerfContext): boolean {
 
 type onNewBestCb<PieceCount extends number, SlotCount extends number> = (
     instance: ins.Puzzle<PieceCount, SlotCount>,
-    count: ins.PermutationCount,
+    indice: ins.DifficultyIndice,
 ) => Promise<void>;
 
 export async function bruteForceSearch<PieceCount extends number, SlotCount extends number>(
     template: tmp.Puzzle<PieceCount, SlotCount>,
-    slotKind: number,
+    slotCount: number,
     onNewBest: onNewBestCb<PieceCount, SlotCount>,
 ) {
     const ctx = { iterations: 0, lastPrintInMs: Date.now() };
 
-    let bestCount: ins.PermutationCount | null = null;
+    let bestIndice: ins.DifficultyIndice | null = null;
 
-    for (const instance of template.all(slotKind)) {
-        const count = instance.countPermutations(bestCount?.valid);
-        if (bestCount == null || compareDifficulty(count, bestCount) > 0) {
-            await onNewBest(instance, count);
-            bestCount = count;
+    for (const instance of template.all(slotCount)) {
+        const indice = instance.getDifficultyIndice(slotCount, bestIndice?.valid);
+        if (bestIndice == null || compareDifficulty(indice, bestIndice) > 0) {
+            await onNewBest(instance, indice);
+            bestIndice = indice;
         }
         perfIteration(ctx);
     }
@@ -66,21 +66,21 @@ export async function bruteForceSearch<PieceCount extends number, SlotCount exte
 
 export async function randomSearch<PieceCount extends number, SlotCount extends number>(
     template: tmp.Puzzle<PieceCount, SlotCount>,
-    slotKind: number,
+    slotCount: number,
     onNewBest: onNewBestCb<PieceCount, SlotCount>,
 ) {
     const ctx = { iterations: 0, lastPrintInMs: Date.now() };
 
-    let bestPuzzle: ins.Puzzle<PieceCount, SlotCount> = template.random(slotKind);
-    let bestCount: ins.PermutationCount = bestPuzzle.countPermutations();
+    let bestPuzzle: ins.Puzzle<PieceCount, SlotCount> = template.random(slotCount);
+    let bestIndice: ins.DifficultyIndice = bestPuzzle.getDifficultyIndice(slotCount);
 
     while (true) {
-        const instance = template.random(slotKind);
-        const count = instance.countPermutations(bestCount?.valid);
-        if (compareDifficulty(count, bestCount) > 0) {
-            await onNewBest(instance, count);
+        const instance = template.random(slotCount);
+        const indice = instance.getDifficultyIndice(slotCount, bestIndice?.valid);
+        if (compareDifficulty(indice, bestIndice) > 0) {
+            await onNewBest(instance, indice);
             bestPuzzle = instance;
-            bestCount = count;
+            bestIndice = indice;
         }
         perfIteration(ctx);
     }
@@ -88,12 +88,12 @@ export async function randomSearch<PieceCount extends number, SlotCount extends 
 
 export async function darwinSearch<PieceCount extends number, SlotCount extends number>(
     template: tmp.Puzzle<PieceCount, SlotCount>,
-    slotKind: number,
+    slotCount: number,
     onNewBest: onNewBestCb<PieceCount, SlotCount>,
 ) {
     const ctx = { iterations: 0, lastPrintInMs: Date.now() };
 
-    let bestCount: ins.PermutationCount | null = null;
+    let bestIndice: ins.DifficultyIndice | null = null;
 
     // settings
     const populationCount = 25;
@@ -103,12 +103,12 @@ export async function darwinSearch<PieceCount extends number, SlotCount extends 
     // initialize population
     const population: {
         instance: ins.Puzzle<PieceCount, SlotCount>;
-        count: ins.PermutationCount;
+        indice: ins.DifficultyIndice;
     }[] = [];
     for (let i = 0; i < populationCount; i++) {
-        const instance = template.random(slotKind);
-        const count = instance.countPermutations();
-        population.push({ instance, count });
+        const instance = template.random(slotCount);
+        const count = instance.getDifficultyIndice(slotCount);
+        population.push({ instance, indice: count });
     }
 
     // evolution loop
@@ -118,28 +118,28 @@ export async function darwinSearch<PieceCount extends number, SlotCount extends 
         for (let i = 0; i < populationCount; i++) {
             for (let i = 0; i < childCount; i++) {
                 const instance = template.randomChildren(
-                    slotKind,
+                    slotCount,
                     mutationRate,
                     assertDefined(population[i]).instance,
                 );
-                const count = instance.countPermutations(bestCount?.valid);
-                population.push({ instance, count });
-                if (bestCount == null || compareDifficulty(count, bestCount) > 0) {
-                    await onNewBest(instance, count);
-                    bestCount = count;
+                const indice = instance.getDifficultyIndice(slotCount, bestIndice?.valid);
+                population.push({ instance, indice });
+                if (bestIndice == null || compareDifficulty(indice, bestIndice) > 0) {
+                    await onNewBest(instance, indice);
+                    bestIndice = indice;
                 }
                 hasLogged = hasLogged || perfIteration(ctx);
             }
         }
         // keep bests
         population.sort((a, b) => {
-            return compareDifficulty(a.count, b.count);
+            return compareDifficulty(a.indice, b.indice);
         });
         while (population.length > populationCount) {
             population.shift();
         }
         if (hasLogged) {
-            console.debug(population.map((v) => v.count.almost));
+            console.debug(population.map((v) => v.indice.almost));
         }
     }
 }

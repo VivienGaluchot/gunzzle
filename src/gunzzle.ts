@@ -118,15 +118,20 @@ async function main(): Promise<number> {
     const symmetries = template.getOneSolutionPuzzle().countPermutations().valid;
 
     let prevFilePath: string | undefined = undefined;
-    await userAlgo(template, slotNumber, async (instance, counts) => {
-        const valid = counts.valid / symmetries;
-        const almost = Math.round(10 * counts.almost / symmetries) / 10;
+    await userAlgo(template, slotNumber, async (instance, indice) => {
+        const valid = indice.valid / symmetries;
+        const almost = Math.round(10 * indice.almost / symmetries) / 10;
+        const entropy = indice.entropy;
         console.log("---");
-        console.log(`${valid} x ${almost} (${symmetries})`);
+        console.log(`${valid} x ${almost} ${entropy.toPrecision(2)} (${symmetries})`);
         console.log(instance.toString());
         console.log("---");
         if (dir) {
-            const filePath = `${dir}/${templateName}-${valid}x${almost}.txt`;
+            if (prevFilePath != undefined) {
+                await Deno.remove(prevFilePath);
+                prevFilePath = undefined;
+            }
+            const filePath = `${dir}/${templateName}-${valid}x${almost}-${entropy.toPrecision(2)}.txt`;
             try {
                 // TODO
                 // normalize the instance (swap ids for reproducibility ?)
@@ -134,13 +139,10 @@ async function main(): Promise<number> {
                 await Deno.writeFile(filePath, new TextEncoder().encode(`${instance.toString()}\n`), {
                     append: true,
                 });
+                prevFilePath = filePath;
             } catch (err) {
                 console.error(`failed to write: ${err}`);
             }
-            if (prevFilePath != undefined) {
-                await Deno.remove(prevFilePath);
-            }
-            prevFilePath = filePath;
         }
     });
 

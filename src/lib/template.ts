@@ -20,8 +20,8 @@ export class ValSlot {
         return `${this.id}`;
     }
 
-    *all(slotKind: number): Generator<ins.Slot> {
-        for (let i = -slotKind; i <= slotKind; i++) {
+    *all(slotCount: number): Generator<ins.Slot> {
+        for (let i = -slotCount; i <= slotCount; i++) {
             if (i != 0) {
                 this.generated = i;
                 yield new ins.Slot(i);
@@ -128,8 +128,8 @@ export class Piece<SlotCount extends number> {
         return `[${slot_list}]`;
     }
 
-    *all(slotKind: number): Generator<PartialPiece<SlotCount>> {
-        for (const partial of this.recGenerator(slotKind, this.slots)) {
+    *all(slotCount: number): Generator<PartialPiece<SlotCount>> {
+        for (const partial of this.recGenerator(slotCount, this.slots)) {
             if (partial.length != this.slots.length) {
                 throw new Error("internal error");
             }
@@ -140,37 +140,37 @@ export class Piece<SlotCount extends number> {
         }
     }
 
-    private *recGenerator(slotKind: number, slots: Slot[]): Generator<PartialSlot[]> {
+    private *recGenerator(slotCount: number, slots: Slot[]): Generator<PartialSlot[]> {
         const [first, ...rest] = slots;
         if (first == undefined) {
             yield [];
         } else {
-            for (const slot of first.all(slotKind)) {
-                for (const slotRest of this.recGenerator(slotKind, rest)) {
+            for (const slot of first.all(slotCount)) {
+                for (const slotRest of this.recGenerator(slotCount, rest)) {
                     yield [slot, ...slotRest];
                 }
             }
         }
     }
 
-    random(slotKind: number): PartialPiece<SlotCount> {
+    random(slotCount: number): PartialPiece<SlotCount> {
         return {
             slots: fixedMap(this.slots, (slot) => {
-                return slot.random(slotKind);
+                return slot.random(slotCount);
             }),
             transformations: this.transformations,
         };
     }
 
     randomChildren(
-        slotKind: number,
+        slotCount: number,
         mutationRate: number,
         instance: ins.Piece<SlotCount>,
     ): PartialPiece<SlotCount> {
         return {
             slots: fixedMap(this.slots, (slot, index) => {
                 return slot.randomChildren(
-                    slotKind,
+                    slotCount,
                     mutationRate,
                     assertDefined(instance.slots[index]),
                 );
@@ -301,27 +301,27 @@ export class Puzzle<PieceCount extends number, SlotCount extends number> {
     }
 
     private *recGenerator(
-        slotKind: number,
+        slotCount: number,
         pieces: Piece<SlotCount>[],
     ): Generator<PartialPiece<SlotCount>[]> {
         const [first, ...rest] = pieces;
         if (first == undefined) {
             yield [];
         } else {
-            for (const piece of first.all(slotKind)) {
-                for (const pieceRest of this.recGenerator(slotKind, rest)) {
+            for (const piece of first.all(slotCount)) {
+                for (const pieceRest of this.recGenerator(slotCount, rest)) {
                     yield [piece, ...pieceRest];
                 }
             }
         }
     }
 
-    random(slotKind: number): ins.Puzzle<PieceCount, SlotCount> {
+    random(slotCount: number): ins.Puzzle<PieceCount, SlotCount> {
         for (const piece of this.pieces) {
             piece.clean();
         }
         const partialPieces = fixedMap(this.pieces, (piece) => {
-            return piece.random(slotKind);
+            return piece.random(slotCount);
         });
         return new ins.Puzzle(this).withPieces(
             fixedMap(partialPieces, resolvePartialPiece<SlotCount>),
@@ -329,7 +329,7 @@ export class Puzzle<PieceCount extends number, SlotCount extends number> {
     }
 
     randomChildren(
-        slotKind: number,
+        slotCount: number,
         mutationRate: number,
         instance: ins.Puzzle<PieceCount, SlotCount>,
     ): ins.Puzzle<PieceCount, SlotCount> {
@@ -338,7 +338,7 @@ export class Puzzle<PieceCount extends number, SlotCount extends number> {
         }
         const partialPieces = fixedMap(this.pieces, (piece, index) => {
             return piece.randomChildren(
-                slotKind,
+                slotCount,
                 mutationRate,
                 assertDefined(instance.pieces?.[index]),
             );

@@ -1,4 +1,5 @@
 import * as tpl from "./template.ts";
+import * as math from "./math.ts";
 import { assertDefined, fixedMap, FixedSizeArray } from "./type.ts";
 
 // Slots
@@ -33,6 +34,14 @@ export class Piece<SlotCount extends number> {
         });
     }
 
+    getEntropy(slotCount: number): number {
+        const values = [];
+        for (const slot of this.slots) {
+            values.push(slot.value);
+        }
+        return math.normalizedEntropy(values, slotCount * 2);
+    }
+
     toString(): string {
         const slot_list = this.slots.map((slot) => `${slot.value}`).join(" ");
         return `[${slot_list}]`;
@@ -46,6 +55,10 @@ export interface PermutationCount {
     valid: number;
     // number of permutation where the puzzle can be almost completed, only the last piece does not fit
     almost: number;
+}
+
+export interface DifficultyIndice extends PermutationCount {
+    entropy: number;
 }
 
 export class Puzzle<PieceCount extends number, SlotCount extends number> {
@@ -72,6 +85,17 @@ export class Puzzle<PieceCount extends number, SlotCount extends number> {
             fixedMap(assertDefined(this.pieces), () => true),
             maxValid,
         ) ?? maxValidReached;
+    }
+
+    getEntropy(slotCount: number): number {
+        const pieces = assertDefined(this.pieces);
+        return Math.min(...pieces.map((piece) => {
+            return piece.getEntropy(slotCount);
+        }));
+    }
+
+    getDifficultyIndice(slotCount: number, maxValid?: number): DifficultyIndice {
+        return { ...this.countPermutations(maxValid), entropy: this.getEntropy(slotCount) };
     }
 
     private recCounter(
