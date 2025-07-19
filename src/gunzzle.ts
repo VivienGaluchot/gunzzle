@@ -135,10 +135,13 @@ async function main(): Promise<number> {
             try {
                 // TODO
                 // normalize the instance (swap ids for reproducibility ?)
-                // print in nice output
-                await Deno.writeFile(filePath, new TextEncoder().encode(`${instance.toString()}\n`), {
-                    append: true,
-                });
+                await Deno.writeFile(
+                    filePath,
+                    new TextEncoder().encode(`${instance.toString()}\n${instance.toVisual()}\n`),
+                    {
+                        append: true,
+                    },
+                );
                 prevFilePath = filePath;
             } catch (err) {
                 console.error(`failed to write: ${err}`);

@@ -62,7 +62,7 @@ export function getTemplate(): tmp.Puzzle<4, 3> {
     const p3 = new tmp.Piece([rC, sG, rF]).withTransformations(trs);
     const p4 = new tmp.Piece([rE, rG, rB]).withTransformations(trs);
 
-    return new tmp.Puzzle([p1, p2, p3, p4]);
+    return new tmp.Puzzle([p1, p2, p3, p4], "");
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -74,8 +74,8 @@ import { assertEquals } from "https://deno.land/std@0.217.0/assert/assert_equals
 Deno.test("Puzzle.countPermutations", () => {
     const template = getTemplate();
     // best value without first piece transform omptimization
-    const a = template.getInstance([[-3, -2, -1], [-3, 2, 3], [3, 1, -3], [3, -1, 1]]);
+    const a = template.toInstance([[-3, -2, -1], [-3, 2, 3], [3, 1, -3], [3, -1, 1]]);
     // best value with first piece transform omptimization
-    const b = template.getInstance([[-3, -2, 2], [-3, 2, 3], [3, -1, -3], [3, 1, -2]]);
+    const b = template.toInstance([[-3, -2, 2], [-3, 2, 3], [3, -1, -3], [3, 1, -2]]);
     assertEquals(a.countPermutations(), b.countPermutations());
 });

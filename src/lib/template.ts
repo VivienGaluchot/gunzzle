@@ -1,5 +1,5 @@
 import * as ins from "./instance.ts";
-import { assertDefined, fixedMap, FixedSizeArray } from "./type.ts";
+import { assertDefined, fixedMap, FixedSizeArray, padCenter } from "./type.ts";
 
 // Slots
 
@@ -58,6 +58,10 @@ export class RefSlot {
 
     constructor(ref: ValSlot) {
         this.ref = ref;
+    }
+
+    get id(): string {
+        return this.ref.id;
     }
 
     toString(): string {
@@ -219,9 +223,12 @@ export class Puzzle<PieceCount extends number, SlotCount extends number> {
     piecesLinks: FixedSizeArray<PieceCount, PieceLink[]>;
     // links to other piece placed before in the `pieces` order
     piecesLinksToPrev: FixedSizeArray<PieceCount, PieceLink[]>;
+    // template visual representation
+    visual: string;
 
-    constructor(pieces: FixedSizeArray<PieceCount, Piece<SlotCount>>) {
+    constructor(pieces: FixedSizeArray<PieceCount, Piece<SlotCount>>, visual: string) {
         this.pieces = pieces;
+        this.visual = visual;
         const slotMap = new Map<Slot, SlotIndex>();
         for (const [pieceId, piece] of pieces.entries()) {
             for (const [slotId, slot] of piece.slots.entries()) {
@@ -252,7 +259,22 @@ export class Puzzle<PieceCount extends number, SlotCount extends number> {
         return this.pieces.map((piece) => piece.toString()).join(" ");
     }
 
-    getInstance(
+    toVisual(values: FixedSizeArray<PieceCount, FixedSizeArray<SlotCount, number>>): string {
+        let visual = this.visual;
+        for (const [pI, piece] of this.pieces.entries()) {
+            for (const [sI, slot] of piece.slots.entries()) {
+                const value = assertDefined(values[pI]?.[sI]);
+                if (slot instanceof ValSlot) {
+                    visual = visual.replace(` ${slot.id} `, padCenter(`${value}`, slot.id.length + 2));
+                } else {
+                    visual = visual.replace(`*${slot.id} `, padCenter(`${value}`, slot.id.length + 2));
+                }
+            }
+        }
+        return visual;
+    }
+
+    toInstance(
         values: FixedSizeArray<PieceCount, FixedSizeArray<SlotCount, number>>,
     ): ins.Puzzle<PieceCount, SlotCount> {
         return new ins.Puzzle(this).withPieces(fixedMap(this.pieces, (piece, pIndex) => {
@@ -368,7 +390,7 @@ Deno.test("Puzzle.toString", () => {
     const p2 = new Piece([new RefSlot(s01), s10]).withTransformations(transformations);
     const p3 = new Piece([new RefSlot(s10), s20]).withTransformations(transformations);
 
-    const puzzle = new Puzzle([p1, p2, p3]);
+    const puzzle = new Puzzle([p1, p2, p3], "");
     assertEquals(puzzle.toString(), "[a b] [*b c] [*c d]");
 });
 
@@ -432,7 +454,7 @@ Deno.test("Puzzle.all", () => {
     const transformations: Transformations<2> = [[0, 1], [1, 0]];
     const p1 = new Piece([s00, new RefSlot(s01)]).withTransformations(transformations);
     const p2 = new Piece([new RefSlot(s00), s01]).withTransformations(transformations);
-    const puzzleTemplate = new Puzzle([p1, p2]);
+    const puzzleTemplate = new Puzzle([p1, p2], "");
 
     assertEquals(puzzleTemplate.toString(), "[a *b] [*a b]");
     assertEquals(
@@ -475,7 +497,7 @@ Deno.test("Puzzle.random", () => {
     const p2 = new Piece([new RefSlot(s01), s10]).withTransformations(transformations);
     const p3 = new Piece([new RefSlot(s10), s20]).withTransformations(transformations);
 
-    const puzzleTemplate = new Puzzle([p1, p2, p3]);
+    const puzzleTemplate = new Puzzle([p1, p2, p3], "");
     assertEquals(puzzleTemplate.toString(), "[a b] [*b c] [*c d]");
 
     for (let i = 0; i < 100; i++) {
@@ -503,7 +525,7 @@ Deno.test("Puzzle.piecesLinks", () => {
     const p2 = new Piece([new RefSlot(s01), s10]).withTransformations(transformations);
     const p3 = new Piece([new RefSlot(s10), s20]).withTransformations(transformations);
 
-    const puzzle = new Puzzle([p1, p2, p3]);
+    const puzzle = new Puzzle([p1, p2, p3], "");
     assertEquals(puzzle.toString(), "[a b] [*b c] [*c d]");
     assertEquals(
         puzzle.pieces.map((_, index) => {
@@ -541,7 +563,7 @@ Deno.test("Puzzle.getOneSolutionPuzzle", () => {
     const p2 = new Piece([new RefSlot(s01), s10]).withTransformations(transformations);
     const p3 = new Piece([new RefSlot(s10), s20]).withTransformations(transformations);
 
-    const puzzle = new Puzzle([p1, p2, p3]);
+    const puzzle = new Puzzle([p1, p2, p3], "");
     assertEquals(puzzle.toString(), "[a b] [*b c] [*c d]");
     assertEquals(
         puzzle.getOneSolutionPuzzle().pieces?.map((piece) => {

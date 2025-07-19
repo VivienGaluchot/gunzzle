@@ -75,7 +75,19 @@ export class Puzzle<PieceCount extends number, SlotCount extends number> {
     }
 
     toString(): string {
-        return this.pieces?.map((piece) => piece.toString()).join(" ") ?? "<no pieces>";
+        return assertDefined(this.pieces).map((piece) => piece.toString()).join(" ");
+    }
+
+    toVisual(): string {
+        return this.template.toVisual(this.toValues());
+    }
+
+    toValues(): FixedSizeArray<PieceCount, FixedSizeArray<SlotCount, number>> {
+        return fixedMap(assertDefined(this.pieces), (piece) => {
+            return fixedMap(piece.slots, (slot) => {
+                return slot.value;
+            });
+        });
     }
 
     countPermutations(maxValid?: number): PermutationCount {
@@ -195,14 +207,28 @@ Deno.test("Puzzle.toString", () => {
     const templateP1 = new tpl.Piece([s00, s01]).withTransformations(trs);
     const templateP2 = new tpl.Piece([new tpl.RefSlot(s01), s10]).withTransformations(trs);
     const templateP3 = new tpl.Piece([new tpl.RefSlot(s10), s20]).withTransformations(trs);
-    const templatePuzzle = new tpl.Puzzle([templateP1, templateP2, templateP3]);
+    const templatePuzzle = new tpl.Puzzle([templateP1, templateP2, templateP3], "");
 
-    const p1 = new Piece([new Slot(0), new Slot(1)], []);
-    const p2 = new Piece([new Slot(2), new Slot(3)], []);
-    const p3 = new Piece([new Slot(4), new Slot(5)], []);
-    const puzzle = new Puzzle(templatePuzzle).withPieces([p1, p2, p3]);
+    const puzzle = templatePuzzle.toInstance([[0, 1], [2, 3], [4, 5]]);
 
     assertEquals(puzzle.toString(), "[0 1] [2 3] [4 5]");
+});
+
+Deno.test("Puzzle.toVisual", () => {
+    const s00 = new tpl.ValSlot("a");
+    const s01 = new tpl.ValSlot("b");
+    const s10 = new tpl.ValSlot("c");
+    const s20 = new tpl.ValSlot("d");
+
+    const trs: tpl.Transformations<2> = [[0, 1]];
+    const templateP1 = new tpl.Piece([s00, s01]).withTransformations(trs);
+    const templateP2 = new tpl.Piece([new tpl.RefSlot(s01), s10]).withTransformations(trs);
+    const templateP3 = new tpl.Piece([new tpl.RefSlot(s10), s20]).withTransformations(trs);
+    const templatePuzzle = new tpl.Puzzle([templateP1, templateP2, templateP3], "| a  b |*b  c |*c  d |");
+
+    const puzzle = templatePuzzle.toInstance([[0, 1], [2, 3], [4, 5]]);
+
+    assertEquals(puzzle.toVisual(), "| 0  1 | 2  3 | 4  5 |");
 });
 
 Deno.test("Puzzle.countPermutations", () => {
@@ -215,7 +241,7 @@ Deno.test("Puzzle.countPermutations", () => {
     const templateP1 = new tpl.Piece([s00, s01]).withTransformations(trs);
     const templateP2 = new tpl.Piece([new tpl.RefSlot(s01), s10]).withTransformations(trs);
     const templateP3 = new tpl.Piece([new tpl.RefSlot(s10), s20]).withTransformations(trs);
-    const templatePuzzle = new tpl.Puzzle([templateP1, templateP2, templateP3]);
+    const templatePuzzle = new tpl.Puzzle([templateP1, templateP2, templateP3], "");
     assertEquals(templatePuzzle.toString(), "[a b] [*b c] [*c d]");
 
     // 2 since puzzle has one symmetry

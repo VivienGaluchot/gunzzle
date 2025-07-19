@@ -6,85 +6,65 @@
  * Piece
  *
  * ```
- *      --- 0 ---
- *    /           \
- *   5             1
- *  /               \
- *  \       x       /
- *   4             2
- *    \           /
- *      --- 3 ---
- * ```
- *
- * Puzzle
- *
- * ```
- *      --- a ---
- *    /           \
- *   f             b
- *  /               \
- *  \       0       /     --- d ---
- *   e             c    /           \
- *    \           /    c*            e
- *      --- d ---     /               \
- *                    \       1       /
- *      --- d* ---      h             f
- *    /           \     \           /
- *   l             h*     --- g ---
- *  /               \
- *  \       2       /
- *   k             i
- *    \           /
- *      --- j ---
+ *      ·  0 ·
+ *     5       1
+ *    ·    x    ·
+ *     4       2
+ *      ·  3 ·
  * ```
  */
 
 import * as tmp from "../lib/template.ts";
 
+const VISUAL = `
+  ·  a ·               
+ f       b             
+·    1    ·            
+ e       c    ·  g ·   
+  ·  d ·    *c       h 
+            ·    2    ·
+  · *d ·     k       i 
+ o      *k    ·  j ·   
+·    3    ·            
+ n       l             
+  ·  m ·               
+`;
+
+const TRS: tmp.Transformations<6> = [
+    [0, 1, 2, 3, 4, 5],
+    [5, 0, 1, 2, 3, 4],
+    [4, 5, 0, 1, 2, 3],
+    [3, 4, 5, 0, 1, 2],
+    [2, 3, 4, 5, 0, 1],
+    [1, 2, 3, 4, 5, 0],
+    [5, 4, 3, 2, 1, 1],
+    [1, 5, 4, 3, 2, 1],
+    [1, 1, 5, 4, 3, 2],
+    [2, 1, 1, 5, 4, 3],
+    [3, 2, 1, 1, 5, 4],
+    [4, 3, 2, 1, 1, 5],
+];
+
 export function getTemplate(): tmp.Puzzle<3, 6> {
-    const sA = new tmp.ValSlot("a");
-    const _rA = new tmp.RefSlot(sA);
-    const sB = new tmp.ValSlot("b");
-    const _rB = new tmp.RefSlot(sB);
-    const sC = new tmp.ValSlot("c");
-    const rC = new tmp.RefSlot(sC);
-    const sD = new tmp.ValSlot("d");
-    const rD = new tmp.RefSlot(sD);
-    const sE = new tmp.ValSlot("e");
-    const _rE = new tmp.RefSlot(sE);
-    const sF = new tmp.ValSlot("f");
-    const _rF = new tmp.RefSlot(sF);
-    const sG = new tmp.ValSlot("g");
-    const _rG = new tmp.RefSlot(sG);
-    const sH = new tmp.ValSlot("h");
-    const rH = new tmp.RefSlot(sH);
-    const sI = new tmp.ValSlot("i");
-    const _rI = new tmp.RefSlot(sI);
-    const sJ = new tmp.ValSlot("j");
-    const _rJ = new tmp.RefSlot(sJ);
-    const sK = new tmp.ValSlot("k");
-    const _rK = new tmp.RefSlot(sK);
-    const sL = new tmp.ValSlot("l");
-    const _rL = new tmp.RefSlot(sL);
+    const a = tmp.slotPair("a");
+    const b = tmp.slotPair("b");
+    const c = tmp.slotPair("c");
+    const d = tmp.slotPair("d");
+    const e = tmp.slotPair("e");
+    const f = tmp.slotPair("f");
+    const g = tmp.slotPair("g");
+    const h = tmp.slotPair("h");
+    const i = tmp.slotPair("i");
+    const j = tmp.slotPair("j");
+    const k = tmp.slotPair("k");
+    const l = tmp.slotPair("l");
+    const m = tmp.slotPair("m");
+    const n = tmp.slotPair("n");
+    const o = tmp.slotPair("o");
 
-    const trs: tmp.Transformations<6> = [
-        [0, 1, 2, 3, 4, 5],
-        [5, 0, 1, 2, 3, 4],
-        [4, 5, 0, 1, 2, 3],
-        [3, 4, 5, 0, 1, 2],
-        [2, 3, 4, 5, 0, 1],
-        [1, 2, 3, 4, 5, 0],
-        [5, 4, 3, 2, 1, 1],
-        [1, 5, 4, 3, 2, 1],
-        [1, 1, 5, 4, 3, 2],
-        [2, 1, 1, 5, 4, 3],
-        [3, 2, 1, 1, 5, 4],
-        [4, 3, 2, 1, 1, 5],
-    ];
+    const p1 = new tmp.Piece([a.s, b.s, c.s, d.s, e.s, f.s]).withTransformations([[0, 1, 2, 3, 4, 5]]);
+    const p2 = new tmp.Piece([g.s, h.s, i.s, j.s, k.s, c.r]).withTransformations(TRS);
+    const p3 = new tmp.Piece([d.r, k.r, l.s, m.s, n.s, o.s]).withTransformations(TRS);
 
-    const p1 = new tmp.Piece([sA, sB, sC, sD, sE, sF]).withTransformations([[0, 1, 2, 3, 4, 5]]);
-    const p2 = new tmp.Piece([sD, sE, sF, sG, sH, rC]).withTransformations(trs);
-    const p3 = new tmp.Piece([rD, rH, sI, sJ, sK, sL]).withTransformations(trs);
-
-    return new tmp.Puzzle([p1, p2, p3]);
+    return new tmp.Puzzle([p1, p2, p3], VISUAL);
 }

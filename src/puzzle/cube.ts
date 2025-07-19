@@ -86,5 +86,5 @@ export function getTemplate(): tmp.Puzzle<6, 4> {
     const p5 = new tmp.Piece([rJ, rK, sL, rI]).withTransformations(trs);
     const p6 = new tmp.Piece([rL, rH, rA, rE]).withTransformations(trs);
 
-    return new tmp.Puzzle([p1, p2, p3, p4, p5, p6]);
+    return new tmp.Puzzle([p1, p2, p3, p4, p5, p6], "");
 }

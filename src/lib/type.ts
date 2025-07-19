@@ -15,3 +15,8 @@ export function assertDefined<T>(value: T | undefined): T {
         throw new Error("undefined value");
     }
 }
+
+export function padCenter(text: string, minLength: number): string {
+    return text.padStart(text.length + Math.floor((minLength - text.length) / 2), " ")
+        .padEnd(minLength, " ");
+}
