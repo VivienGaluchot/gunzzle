@@ -8,12 +8,13 @@ import { assertDefined } from "./type.ts";
  * * `0` if `a` difficulty is the same as `b`,
  * * `<0` if `b` is more difficult than `a`.
  */
-function compareDifficulty(a: ins.DifficultyIndice, b: ins.DifficultyIndice): number {
+function compareDifficulties(a: ins.Difficulty, b: ins.Difficulty): number {
     if (a.valid != b.valid) {
         return b.valid - a.valid;
     } else {
-        const scoreA = a.almost * a.entropy * a.entropy;
-        const scoreB = b.almost * b.entropy * b.entropy;
+        // 1.45 have been choose empirically
+        const scoreA = a.almost * Math.pow(a.entropy, 1.45);
+        const scoreB = b.almost * Math.pow(b.entropy, 1.45);
         return scoreA - scoreB;
     }
 }
@@ -27,10 +28,10 @@ function perfIteration(ctx: PerfContext): boolean {
     ctx.iterations += 1;
     if (ctx.iterations % 100 == 0) {
         const now = Date.now();
-        const deltatTimeInMs = now - ctx.lastPrintInMs;
-        if (deltatTimeInMs > 5000) {
+        const deltaTimeInMs = now - ctx.lastPrintInMs;
+        if (deltaTimeInMs > 5000) {
             console.debug(
-                `${Math.round(1000 * ctx.iterations / deltatTimeInMs).toString().padStart(6)} / s`,
+                `${Math.round(1000 * ctx.iterations / deltaTimeInMs).toString().padStart(6)} / s`,
             );
             ctx.iterations = 0;
             ctx.lastPrintInMs = now;
@@ -42,7 +43,7 @@ function perfIteration(ctx: PerfContext): boolean {
 
 type onNewBestCb<PieceCount extends number, SlotCount extends number> = (
     instance: ins.Puzzle<PieceCount, SlotCount>,
-    indice: ins.DifficultyIndice,
+    indice: ins.Difficulty,
 ) => Promise<void>;
 
 export async function bruteForceSearch<PieceCount extends number, SlotCount extends number>(
@@ -52,13 +53,13 @@ export async function bruteForceSearch<PieceCount extends number, SlotCount exte
 ) {
     const ctx = { iterations: 0, lastPrintInMs: Date.now() };
 
-    let bestIndice: ins.DifficultyIndice | null = null;
+    let bestDifficulty: ins.Difficulty | null = null;
 
     for (const instance of template.all(slotCount)) {
-        const indice = instance.getDifficultyIndice(slotCount, bestIndice?.valid);
-        if (bestIndice == null || compareDifficulty(indice, bestIndice) > 0) {
-            await onNewBest(instance, indice);
-            bestIndice = indice;
+        const difficulty = instance.getDifficulty(slotCount, bestDifficulty?.valid);
+        if (bestDifficulty == null || compareDifficulties(difficulty, bestDifficulty) > 0) {
+            await onNewBest(instance, difficulty);
+            bestDifficulty = difficulty;
         }
         perfIteration(ctx);
     }
@@ -72,15 +73,15 @@ export async function randomSearch<PieceCount extends number, SlotCount extends 
     const ctx = { iterations: 0, lastPrintInMs: Date.now() };
 
     let bestPuzzle: ins.Puzzle<PieceCount, SlotCount> = template.random(slotCount);
-    let bestIndice: ins.DifficultyIndice = bestPuzzle.getDifficultyIndice(slotCount);
+    let bestDifficulty: ins.Difficulty = bestPuzzle.getDifficulty(slotCount);
 
     while (true) {
         const instance = template.random(slotCount);
-        const indice = instance.getDifficultyIndice(slotCount, bestIndice?.valid);
-        if (compareDifficulty(indice, bestIndice) > 0) {
-            await onNewBest(instance, indice);
+        const difficulty = instance.getDifficulty(slotCount, bestDifficulty?.valid);
+        if (compareDifficulties(difficulty, bestDifficulty) > 0) {
+            await onNewBest(instance, difficulty);
             bestPuzzle = instance;
-            bestIndice = indice;
+            bestDifficulty = difficulty;
         }
         perfIteration(ctx);
     }
@@ -93,7 +94,7 @@ export async function darwinSearch<PieceCount extends number, SlotCount extends 
 ) {
     const ctx = { iterations: 0, lastPrintInMs: Date.now() };
 
-    let bestIndice: ins.DifficultyIndice | null = null;
+    let bestDifficulty: ins.Difficulty | null = null;
 
     // settings
     const populationCount = 25;
@@ -103,12 +104,12 @@ export async function darwinSearch<PieceCount extends number, SlotCount extends 
     // initialize population
     const population: {
         instance: ins.Puzzle<PieceCount, SlotCount>;
-        indice: ins.DifficultyIndice;
+        difficulty: ins.Difficulty;
     }[] = [];
     for (let i = 0; i < populationCount; i++) {
         const instance = template.random(slotCount);
-        const count = instance.getDifficultyIndice(slotCount);
-        population.push({ instance, indice: count });
+        const count = instance.getDifficulty(slotCount);
+        population.push({ instance, difficulty: count });
     }
 
     // evolution loop
@@ -122,24 +123,24 @@ export async function darwinSearch<PieceCount extends number, SlotCount extends 
                     mutationRate,
                     assertDefined(population[i]).instance,
                 );
-                const indice = instance.getDifficultyIndice(slotCount, bestIndice?.valid);
-                population.push({ instance, indice });
-                if (bestIndice == null || compareDifficulty(indice, bestIndice) > 0) {
-                    await onNewBest(instance, indice);
-                    bestIndice = indice;
+                const difficulty = instance.getDifficulty(slotCount, bestDifficulty?.valid);
+                population.push({ instance, difficulty: difficulty });
+                if (bestDifficulty == null || compareDifficulties(difficulty, bestDifficulty) > 0) {
+                    await onNewBest(instance, difficulty);
+                    bestDifficulty = difficulty;
                 }
                 hasLogged = hasLogged || perfIteration(ctx);
             }
         }
         // keep bests
         population.sort((a, b) => {
-            return compareDifficulty(a.indice, b.indice);
+            return compareDifficulties(a.difficulty, b.difficulty);
         });
         while (population.length > populationCount) {
             population.shift();
         }
         if (hasLogged) {
-            console.debug(population.map((v) => v.indice.almost));
+            console.debug(population.map((v) => v.difficulty.almost));
         }
     }
 }

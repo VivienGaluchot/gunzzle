@@ -57,7 +57,7 @@ export interface PermutationCount {
     almost: number;
 }
 
-export interface DifficultyIndice extends PermutationCount {
+export interface Difficulty extends PermutationCount {
     entropy: number;
 }
 
@@ -89,12 +89,14 @@ export class Puzzle<PieceCount extends number, SlotCount extends number> {
 
     getEntropy(slotCount: number): number {
         const pieces = assertDefined(this.pieces);
-        return Math.min(...pieces.map((piece) => {
-            return piece.getEntropy(slotCount);
-        }));
+        let res = 1;
+        for (const piece of pieces) {
+            res *= piece.getEntropy(slotCount);
+        }
+        return res;
     }
 
-    getDifficultyIndice(slotCount: number, maxValid?: number): DifficultyIndice {
+    getDifficulty(slotCount: number, maxValid?: number): Difficulty {
         return { ...this.countPermutations(maxValid), entropy: this.getEntropy(slotCount) };
     }
 

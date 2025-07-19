@@ -118,10 +118,10 @@ async function main(): Promise<number> {
     const symmetries = template.getOneSolutionPuzzle().countPermutations().valid;
 
     let prevFilePath: string | undefined = undefined;
-    await userAlgo(template, slotNumber, async (instance, indice) => {
-        const valid = indice.valid / symmetries;
-        const almost = Math.round(10 * indice.almost / symmetries) / 10;
-        const entropy = indice.entropy;
+    await userAlgo(template, slotNumber, async (instance, difficulty) => {
+        const valid = difficulty.valid / symmetries;
+        const almost = Math.round(10 * difficulty.almost / symmetries) / 10;
+        const entropy = difficulty.entropy;
         console.log("---");
         console.log(`${valid} x ${almost} ${entropy.toPrecision(2)} (${symmetries})`);
         console.log(instance.toString());
