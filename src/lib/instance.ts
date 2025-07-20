@@ -90,15 +90,6 @@ export class Puzzle<PieceCount extends number, SlotCount extends number> {
         });
     }
 
-    countPermutations(maxValid?: number): PermutationCount {
-        const maxValidReached = { almost: 0, valid: Infinity };
-        return this.recCounter(
-            [],
-            fixedMap(assertDefined(this.pieces), () => true),
-            maxValid,
-        ) ?? maxValidReached;
-    }
-
     getEntropy(slotCount: number): number {
         const pieces = assertDefined(this.pieces);
         let res = 1;
@@ -110,6 +101,15 @@ export class Puzzle<PieceCount extends number, SlotCount extends number> {
 
     getDifficulty(slotCount: number, maxValid?: number): Difficulty {
         return { ...this.countPermutations(maxValid), entropy: this.getEntropy(slotCount) };
+    }
+
+    countPermutations(maxValid?: number): PermutationCount {
+        const maxValidReached = { almost: 0, valid: Infinity };
+        return this.recCounter(
+            [],
+            fixedMap(assertDefined(this.pieces), () => true),
+            maxValid,
+        ) ?? maxValidReached;
     }
 
     private recCounter(

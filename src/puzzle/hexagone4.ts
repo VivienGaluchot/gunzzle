@@ -14,6 +14,7 @@
  * ```
  */
 
+import { shifts } from "../lib/math.ts";
 import * as tmp from "../lib/template.ts";
 
 const VISUAL = `
@@ -34,18 +35,8 @@ const VISUAL = `
 `;
 
 const TRS: tmp.Transformations<6> = [
-    [0, 1, 2, 3, 4, 5],
-    [5, 0, 1, 2, 3, 4],
-    [4, 5, 0, 1, 2, 3],
-    [3, 4, 5, 0, 1, 2],
-    [2, 3, 4, 5, 0, 1],
-    [1, 2, 3, 4, 5, 0],
-    [5, 4, 3, 2, 1, 1],
-    [1, 5, 4, 3, 2, 1],
-    [1, 1, 5, 4, 3, 2],
-    [2, 1, 1, 5, 4, 3],
-    [3, 2, 1, 1, 5, 4],
-    [4, 3, 2, 1, 1, 5],
+    ...shifts([0, 1, 2, 3, 4, 5]),
+    ...shifts([5, 4, 3, 2, 1, 0]),
 ];
 
 export function getTemplate(): tmp.Puzzle<4, 6> {
