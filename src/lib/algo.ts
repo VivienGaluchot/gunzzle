@@ -13,8 +13,8 @@ function compareDifficulties(a: ins.Difficulty, b: ins.Difficulty): number {
         return b.valid - a.valid;
     } else {
         // 1.45 have been choose empirically
-        const scoreA = a.almost * Math.pow(a.entropy, 1.45);
-        const scoreB = b.almost * Math.pow(b.entropy, 1.45);
+        const scoreA = a.almost;
+        const scoreB = b.almost;
         return scoreA - scoreB;
     }
 }
