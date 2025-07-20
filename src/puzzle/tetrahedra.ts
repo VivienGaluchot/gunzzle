@@ -1,5 +1,5 @@
 /**
- * Triangle puzzle
+ * Tetrahedra puzzle
  *
  * # Template
  *
@@ -14,9 +14,6 @@
  * ```
  */
 
-import { shifts } from "../lib/math.ts";
-import * as tmp from "../lib/template.ts";
-
 const VISUAL = `
                  ·                
                ·   ·              
@@ -26,16 +23,14 @@ const VISUAL = `
                                   
             · · *c  · ·           
       ·      ·       ·      ·     
-    ·   ·    *f  3  g     ·   ·   
-   d  2  f     ·   ·    *g  4  h  
+    ·   ·    *e  3  f     ·   ·   
+  *a  2  e     ·   ·    *f  4 *b  
   ·       ·      ·      ·       · 
- · ·  e  · ·           · ·  i  · ·
+ · ·  d  · ·           · · *d  · ·
 `;
 
-const TRS: tmp.Transformations<3> = [
-    ...shifts([0, 1, 2]),
-    ...shifts([2, 1, 0]),
-];
+import { shifts } from "../lib/math.ts";
+import * as tmp from "../lib/template.ts";
 
 export function getTemplate(): tmp.Puzzle<4, 3> {
     const a = tmp.slotPair("a");
@@ -44,14 +39,18 @@ export function getTemplate(): tmp.Puzzle<4, 3> {
     const d = tmp.slotPair("d");
     const e = tmp.slotPair("e");
     const f = tmp.slotPair("f");
-    const g = tmp.slotPair("g");
-    const h = tmp.slotPair("h");
-    const i = tmp.slotPair("i");
 
-    const p1 = new tmp.Piece([c.s, a.s, b.s]).withTransformations(TRS);
-    const p2 = new tmp.Piece([e.s, d.s, f.s]).withTransformations(TRS);
-    const p3 = new tmp.Piece([c.r, g.s, f.r]).withTransformations(TRS);
-    const p4 = new tmp.Piece([i.s, h.s, g.r]).withTransformations(TRS);
+    const trs: tmp.Transformations<3> = [
+        ...shifts([0, 1, 2]),
+        ...shifts([2, 1, 0]),
+    ];
+
+    // no transform on first piece to reduce the number of symmetries found
+    // can be used since all slots from first pieces are connected to other pieces
+    const p1 = new tmp.Piece([c.s, a.s, b.s]).withTransformations([[0, 1, 2]]);
+    const p2 = new tmp.Piece([d.s, a.r, e.s]).withTransformations(trs);
+    const p3 = new tmp.Piece([c.r, f.s, e.r]).withTransformations(trs);
+    const p4 = new tmp.Piece([d.r, f.r, b.r]).withTransformations(trs);
 
     return new tmp.Puzzle([p1, p2, p3, p4], VISUAL);
 }

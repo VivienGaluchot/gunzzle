@@ -24,14 +24,14 @@ run_triangle4:
 .PHONY: run_tetraedre
 run_tetraedre:
 	@mkdir -p result
-	@deno run --allow-write src/gunzzle.ts -s bruteforce -d result -t tetraedre -n 3
+	@deno run --allow-write src/gunzzle.ts -s brute-force -d result -t tetrahedra -n 3
 
 .PHONY: run_hexagone3
 run_hexagone3:
 	@mkdir -p result
-	@deno run --allow-write src/gunzzle.ts -s darwin -d result -t hexagone3 -n 2
+	@deno run --allow-write src/gunzzle.ts -s darwin -d result -t hexagon3 -n 3
 
 .PHONY: run_hexagone4
 run_hexagone4:
 	@mkdir -p result
-	@deno run --allow-write src/gunzzle.ts -s darwin -d result -t hexagone4 -n 3
+	@deno run --allow-write src/gunzzle.ts -s darwin -d result -t hexagon4 -n 3

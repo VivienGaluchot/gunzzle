@@ -5,9 +5,9 @@
 import * as algo from "./lib/algo.ts";
 import * as cube from "./puzzle/cube.ts";
 import * as triangle4 from "./puzzle/triangle4.ts";
-import * as tetraedre from "./puzzle/tetraedre.ts";
-import * as hexagone3 from "./puzzle/hexagone3.ts";
-import * as hexagone4 from "./puzzle/hexagone4.ts";
+import * as tetrahedra from "./puzzle/tetrahedra.ts";
+import * as hexagon3 from "./puzzle/hexagon3.ts";
+import * as hexagon4 from "./puzzle/hexagon4.ts";
 import { parseArgs } from "jsr:@std/cli/parse-args";
 
 // CLI helpers
@@ -54,13 +54,13 @@ function getArgs() {
     const ARG_TEMPLATE = {
         "cube": cube.getTemplate,
         "triangle4": triangle4.getTemplate,
-        "tetraedre": tetraedre.getTemplate,
-        "hexagone3": hexagone3.getTemplate,
-        "hexagone4": hexagone4.getTemplate,
+        "tetrahedra": tetrahedra.getTemplate,
+        "hexagon3": hexagon3.getTemplate,
+        "hexagon4": hexagon4.getTemplate,
     };
 
     const ARG_MAP_SEARCH = {
-        "bruteforce": algo.bruteForceSearch,
+        "brute-force": algo.bruteForceSearch,
         "random": algo.randomSearch,
         "darwin": algo.darwinSearch,
     };
@@ -131,7 +131,8 @@ async function main(): Promise<number> {
                 await Deno.remove(prevFilePath);
                 prevFilePath = undefined;
             }
-            const filePath = `${dir}/${templateName}-${valid}x${almost}-${entropy.toPrecision(2)}.txt`;
+            await Deno.mkdir(`${dir}/${templateName}`, { recursive: true });
+            const filePath = `${dir}/${templateName}/${valid}x${almost}-${entropy.toPrecision(2)}.txt`;
             try {
                 // TODO
                 // normalize the instance (swap ids for reproducibility ?)
