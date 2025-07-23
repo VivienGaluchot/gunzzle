@@ -8,6 +8,7 @@ import * as triangle4 from "./puzzle/triangle4.ts";
 import * as tetrahedra from "./puzzle/tetrahedra.ts";
 import * as hexagon3 from "./puzzle/hexagon3.ts";
 import * as hexagon4 from "./puzzle/hexagon4.ts";
+import * as hexagon7 from "./puzzle/hexagon7.ts";
 import { parseArgs } from "jsr:@std/cli/parse-args";
 
 // CLI helpers
@@ -57,6 +58,7 @@ function getArgs() {
         "tetrahedra": tetrahedra.getTemplate,
         "hexagon3": hexagon3.getTemplate,
         "hexagon4": hexagon4.getTemplate,
+        "hexagon7": hexagon7.getTemplate,
     };
 
     const ARG_MAP_SEARCH = {

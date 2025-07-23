@@ -40,30 +40,12 @@ const TRS: tmp.Transformations<6> = [
 ];
 
 export function getTemplate(): tmp.Puzzle<4, 6> {
-    const a = tmp.slotPair("a");
-    const b = tmp.slotPair("b");
-    const c = tmp.slotPair("c");
-    const d = tmp.slotPair("d");
-    const e = tmp.slotPair("e");
-    const f = tmp.slotPair("f");
-    const g = tmp.slotPair("g");
-    const h = tmp.slotPair("h");
-    const i = tmp.slotPair("i");
-    const j = tmp.slotPair("j");
-    const k = tmp.slotPair("k");
-    const l = tmp.slotPair("l");
-    const m = tmp.slotPair("m");
-    const n = tmp.slotPair("n");
-    const o = tmp.slotPair("o");
-    const p = tmp.slotPair("p");
-    const q = tmp.slotPair("q");
-    const r = tmp.slotPair("r");
-    const s = tmp.slotPair("s");
+    const col = new tmp.SlotCollection();
 
-    const p1 = new tmp.Piece([a.s, b.s, c.s, d.s, e.s, f.s]).withTransformations(TRS);
-    const p2 = new tmp.Piece([g.s, h.s, i.s, j.s, k.s, c.r]).withTransformations(TRS);
-    const p3 = new tmp.Piece([d.r, k.r, l.s, m.s, n.s, o.s]).withTransformations(TRS);
-    const p4 = new tmp.Piece([j.r, p.s, q.s, r.s, s.s, l.r]).withTransformations(TRS);
+    const p1 = new tmp.Piece(col.slots(["a", "b", "c", "d", "e", "f"])).withTransformations(TRS);
+    const p2 = new tmp.Piece(col.slots(["g", "h", "i", "j", "k", "*c"])).withTransformations(TRS);
+    const p3 = new tmp.Piece(col.slots(["*d", "*k", "l", "m", "n", "o"])).withTransformations(TRS);
+    const p4 = new tmp.Piece(col.slots(["*j", "p", "q", "r", "s", "*l"])).withTransformations(TRS);
 
     return new tmp.Puzzle([p1, p2, p3, p4], VISUAL);
 }

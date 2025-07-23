@@ -3,7 +3,50 @@ import { assertDefined, fixedMap, FixedSizeArray, padCenter } from "./type.ts";
 
 // Slots
 
-export function slotPair(id: string): { s: ValSlot; r: RefSlot } {
+export class SlotCollection {
+    namedPairs: Map<string, SlotPair>;
+    usedIds: Set<string>;
+
+    constructor() {
+        this.namedPairs = new Map();
+        this.usedIds = new Set();
+    }
+
+    slot(id: string): ValSlot | RefSlot {
+        if (this.usedIds.has(id)) {
+            throw new Error(`slot id already used: ${id}`);
+        }
+        this.usedIds.add(id);
+        if (id.startsWith("*")) {
+            const idNumber = id.slice(1);
+            const pair = this.namedPairs.get(idNumber);
+            if (pair == undefined) {
+                throw new Error(`ref slot not defined: ${id}`);
+            }
+            return pair.r;
+        } else {
+            if (this.namedPairs.get(id) != undefined) {
+                throw new Error(`slot already defined: ${id}`);
+            }
+            const pair = slotPair(id);
+            this.namedPairs.set(id, pair);
+            return pair.s;
+        }
+    }
+
+    slots<N extends number>(ids: FixedSizeArray<N, string>): FixedSizeArray<N, ValSlot | RefSlot> {
+        return fixedMap(ids, (id) => {
+            return this.slot(id);
+        });
+    }
+}
+
+export interface SlotPair {
+    s: ValSlot;
+    r: RefSlot;
+}
+
+export function slotPair(id: string): SlotPair {
     const s = new ValSlot(id);
     return { s, r: new RefSlot(s) };
 }
